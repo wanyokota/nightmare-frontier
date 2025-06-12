@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D FPS Game</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Creepster&family=Nosifer&family=Butcherman&display=swap');
+        
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background: #000;
+        }
+        #gameCanvas {
+            display: block;
+        }
+        #crosshair {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            pointer-events: none;
+        }
+        #crosshair::before,
+        #crosshair::after {
+            content: '';
+            position: absolute;
+            background-color: white;
+            box-shadow: 0 0 3px rgba(0,0,0,0.5);
+        }
+        #crosshair::before {
+            width: 100%;
+            height: 2px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        #crosshair::after {
+            width: 2px;
+            height: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        #crosshair {
+            transition: transform 0.1s, filter 0.1s;
+        }
+        #gameOverScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        #gameOverContent {
+            text-align: center;
+            color: white;
+        }
+        #gameOverContent h2 {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        #gameOverContent p {
+            font-size: 24px;
+            margin-bottom: 30px;
+        }
+        #restartButton {
+            padding: 15px 30px;
+            font-size: 20px;
+            background: linear-gradient(45deg, #8B0000, #FF0000);
+            color: white;
+            border: 2px solid #FF0000;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Butcherman', cursive;
+            text-shadow: 2px 2px 4px #000;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+        }
+        #restartButton:hover {
+            background: linear-gradient(45deg, #FF0000, #FF4444);
+            box-shadow: 0 0 30px rgba(255, 0, 0, 0.6);
+            transform: translateY(-2px);
+        }
+        #startScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a0505 50%, #0a0a0a 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1001;
+            overflow-y: auto;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        #startContent {
+            text-align: center;
+            color: white;
+            max-width: 800px;
+            width: 100%;
+            max-height: 95vh;
+            overflow-y: auto;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        #startContent h1 {
+            font-family: 'Creepster', cursive;
+            font-size: clamp(28px, 5vw, 64px);
+            margin-bottom: 20px;
+            text-shadow: 
+                0 0 10px #ff0000,
+                0 0 20px #ff0000,
+                0 0 30px #ff0000,
+                2px 2px 8px #000000;
+            color: #ff6666;
+            animation: flicker 3s infinite alternate;
+        }
+        
+        @keyframes flicker {
+            0%, 18%, 22%, 25%, 53%, 57%, 100% {
+                text-shadow: 
+                    0 0 10px #ff0000,
+                    0 0 20px #ff0000,
+                    0 0 30px #ff0000,
+                    2px 2px 8px #000000;
+            }
+            20%, 24%, 55% {
+                text-shadow: 
+                    0 0 5px #ff0000,
+                    2px 2px 8px #000000;
+            }
+        }
+        #startContent .model-selection {
+            margin: 15px 0;
+            padding: 15px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        #startContent .model-selection h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: clamp(14px, 2.5vw, 18px);
+        }
+        #startContent label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: clamp(12px, 2vw, 16px);
+        }
+        #startContent input[type="file"] {
+            margin-bottom: 8px;
+            font-size: clamp(10px, 1.8vw, 14px);
+        }
+        #startContent input[type="range"] {
+            margin-bottom: 8px;
+        }
+        .ranking-section {
+            margin: 15px 0 !important;
+            padding: 15px !important;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .ranking-section h3 {
+            margin-top: 0 !important;
+            margin-bottom: 10px !important;
+            font-size: clamp(14px, 2.5vw, 18px) !important;
+        }
+        #startButton {
+            padding: 12px 30px;
+            font-size: clamp(16px, 3vw, 24px);
+            background: linear-gradient(45deg, #8B0000, #FF0000);
+            color: white;
+            border: 2px solid #FF0000;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.3s;
+            font-family: 'Butcherman', cursive;
+            text-shadow: 2px 2px 4px #000;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+        }
+        #startButton:hover {
+            background: linear-gradient(45deg, #FF0000, #FF4444);
+            box-shadow: 0 0 30px rgba(255, 0, 0, 0.6);
+            transform: translateY(-2px);
+        }
+        #startButton:disabled {
+            background: #666;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+        
+        /* レスポンシブ調整 */
+        @media (max-height: 800px) {
+            #startContent {
+                padding: 10px;
+            }
+            .ranking-section {
+                max-height: 150px;
+            }
+        }
+        
+        @media (max-width: 1200px) {
+            #startContent {
+                max-width: 90%;
+            }
+        }
+        #gameUI {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px 20px;
+            border-radius: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            min-width: 200px;
+        }
+        #gameUI div {
+            margin-bottom: 8px;
+        }
+        #gameUI div:last-child {
+            margin-bottom: 0;
+        }
+        .ui-label {
+            color: #cccccc;
+            font-size: 14px;
+        }
+        .ui-value {
+            color: #ffffff;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .ui-progress {
+            color: #4CAF50;
+        }
+        .ui-warning {
+            color: #ff6600;
+        }
+        .ui-danger {
+            color: #ff0000;
+        }
+        #instructions {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            color: white;
+            font-size: 14px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        #modelLoader {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 5px;
+            color: white;
+            font-size: 14px;
+            display: none;
+        }
+        #modelLoader input {
+            margin-top: 10px;
+            display: block;
+        }
+        #modelLoader button {
+            margin-top: 10px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        #modelStatus {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #00ff00;
+        }
+        #radar {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 150px;
+            height: 150px;
+            border: 3px solid rgba(255, 0, 0, 0.8);
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.7) 70%, rgba(255, 0, 0, 0.1) 100%);
+            box-shadow: 
+                inset 0 0 20px rgba(255, 0, 0, 0.3),
+                0 0 20px rgba(255, 0, 0, 0.2);
+            z-index: 100;
+            display: none;
+        }
+        #radar::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 6px;
+            height: 6px;
+            background: #00ff00;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 8px #00ff00;
+        }
+        #radar::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            right: 3px;
+            bottom: 3px;
+            border: 1px solid rgba(255, 0, 0, 0.3);
+            border-radius: 50%;
+        }
+        .radar-enemy {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: #ff0000;
+            border-radius: 50%;
+            box-shadow: 0 0 6px #ff0000;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .radar-sweep {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 2px;
+            height: 70px;
+            background: linear-gradient(to top, transparent, rgba(0, 255, 0, 0.6));
+            transform-origin: bottom center;
+            transform: translate(-50%, -100%) rotate(0deg);
+            animation: radarSweep 3s linear infinite;
+        }
+        @keyframes radarSweep {
+            0% { transform: translate(-50%, -100%) rotate(0deg); }
+            100% { transform: translate(-50%, -100%) rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="crosshair"></div>
+    <div id="modelLoader">
+        <div>カスタムモデル読み込み</div>
+        <small>対応形式: FBX, OBJ, GLTF/GLB</small>
+        <div style="margin-top: 10px;">
+            <label>障害物モデル:</label>
+            <input type="file" id="modelFile" accept=".fbx,.obj,.gltf,.glb">
+            <button onclick="loadCustomModel()">適用</button>
+        </div>
+        <div style="margin-top: 10px;">
+            <label>敵モデル:</label>
+            <input type="file" id="enemyModelFile" accept=".fbx,.obj,.gltf,.glb">
+            <button onclick="loadCustomEnemyModel()">適用</button>
+        </div>
+        <button onclick="resetToDefault()" style="margin-top: 10px;">全てデフォルトに戻す</button>
+        <div id="modelStatus"></div>
+    </div>
+    <div id="gameUI">
+        <div><span class="ui-label">スコア:</span> <span id="score" class="ui-value">0</span></div>
+        <div><span class="ui-label">体力:</span> <span id="health" class="ui-value ui-progress">100</span></div>
+        <div><span class="ui-label">弾薬:</span> <span id="ammo" class="ui-value">30</span> / 30</div>
+        <div><span class="ui-label">撃破数:</span> <span id="enemiesKilled" class="ui-value ui-progress">0</span> / 10</div>
+        <div><span class="ui-label">残り敵:</span> <span id="enemiesRemaining" class="ui-value">10</span></div>
+    </div>
+    <div id="instructions" style="display: none;">
+        クリックしてゲーム開始 | WASD: 移動 | マウス: 視点移動 | 左クリック: 射撃 | R: リロード | ESC: ポインターロック解除
+    </div>
+    <div id="radar">
+        <div class="radar-sweep"></div>
+    </div>
+    <div id="startScreen">
+        <div id="startContent">
+            <h1>NIGHTMARE FRONTIER</h1>
+            <p style="font-family: 'Nosifer', cursive; font-size: clamp(12px, 2vw, 18px); color: #cc4444; margin-top: -10px; margin-bottom: 20px;">～悪夢の最前線～</p>
+            <div class="model-selection">
+                <h3>敵モデル/写真選択（オプション）</h3>
+                <div style="margin-bottom: 15px;">
+                    <input type="radio" id="enemyTypeModel" name="enemyType" value="model" checked>
+                    <label for="enemyTypeModel" style="display: inline; margin-left: 5px; margin-bottom: 0;">3Dモデル使用</label>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <input type="radio" id="enemyTypePhoto" name="enemyType" value="photo">
+                    <label for="enemyTypePhoto" style="display: inline; margin-left: 5px; margin-bottom: 0;">写真を敵に貼り付け</label>
+                </div>
+                <div id="modelUploadSection">
+                    <label>カスタム敵モデル（FBX, OBJ, GLTF/GLB）:</label>
+                    <input type="file" id="startEnemyModel" accept=".fbx,.obj,.gltf,.glb">
+                </div>
+                <div id="photoUploadSection" style="display: none;">
+                    <label>敵に貼る写真（JPG, PNG）:</label>
+                    <input type="file" id="startEnemyPhoto" accept=".jpg,.jpeg,.png,.gif,.bmp,.webp">
+                    <div style="margin-top: 10px; color: #ccc; font-size: 12px;">
+                        ※写真は敵の平面に貼り付けられます<br>
+                        顔写真などがおすすめです
+                    </div>
+                </div>
+                <div id="startModelStatus" style="margin-top: 10px; color: #66ff66;"></div>
+            </div>
+            <div class="ranking-section" style="margin: 20px 0; padding: 20px; background-color: rgba(255, 255, 255, 0.1); border-radius: 10px;">
+                <h3>ランキング</h3>
+                <div style="margin-bottom: 10px;">
+                    <input type="radio" id="localRanking" name="rankingType" value="local" checked>
+                    <label for="localRanking" style="display: inline; margin-left: 5px; margin-bottom: 0; margin-right: 15px;">ローカル</label>
+                    <input type="radio" id="globalRanking" name="rankingType" value="global">
+                    <label for="globalRanking" style="display: inline; margin-left: 5px; margin-bottom: 0;">グローバル</label>
+                </div>
+                <div id="rankingList">
+                    <div style="color: #ccc;">まだ記録がありません</div>
+                </div>
+                <div style="margin-top: 10px;">
+                    <button onclick="clearRanking()" style="padding: 5px 10px; background: #ff4444; color: white; border: none; border-radius: 3px; cursor: pointer; margin-right: 10px;">ローカルクリア</button>
+                    <button onclick="refreshGlobalRanking()" style="padding: 5px 10px; background: #4444ff; color: white; border: none; border-radius: 3px; cursor: pointer;">グローバル更新</button>
+                </div>
+                <div id="playerNameInput" style="margin-top: 10px; display: none;">
+                    <label>プレイヤー名:</label>
+                    <input type="text" id="playerName" placeholder="名前を入力" maxlength="20" style="margin-left: 5px; padding: 3px;">
+                </div>
+            </div>
+            <div style="margin: 20px 0; padding: 10px; background-color: rgba(255, 255, 255, 0.05); border-radius: 5px;">
+                <label for="volumeSlider" style="display: block; margin-bottom: 5px;">音量: <span id="volumeValue">30%</span></label>
+                <input type="range" id="volumeSlider" min="0" max="100" value="30" style="width: 100%;" onchange="updateVolume(this.value)">
+            </div>
+            <p style="color: #ccc;">※モデルを選択しない場合はデフォルトモデルを使用します<br>操作: WASD移動, スペースジャンプ, 左クリック射撃</p>
+            <button id="startButton" onclick="startGame()">ゲームを開始</button>
+        </div>
+    </div>
+    <div id="gameOverScreen">
+        <div id="gameOverContent">
+            <h2>ゲームオーバー</h2>
+            <p>スコア: <span id="finalScore">0</span></p>
+            <button id="restartButton" onclick="restartGame()">もう一度プレイ</button>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/fflate.min.js"></script>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    
+    <script src="game.js"></script>
+    <script>
+        // 敵タイプ選択の切り替え
+        document.addEventListener('DOMContentLoaded', function() {
+            const modelRadio = document.getElementById('enemyTypeModel');
+            const photoRadio = document.getElementById('enemyTypePhoto');
+            const modelSection = document.getElementById('modelUploadSection');
+            const photoSection = document.getElementById('photoUploadSection');
+            
+            function toggleEnemyType() {
+                if (photoRadio.checked) {
+                    modelSection.style.display = 'none';
+                    photoSection.style.display = 'block';
+                } else {
+                    modelSection.style.display = 'block';
+                    photoSection.style.display = 'none';
+                }
+            }
+            
+            modelRadio.addEventListener('change', toggleEnemyType);
+            photoRadio.addEventListener('change', toggleEnemyType);
+            
+            // ランキングタイプ切り替え
+            const localRanking = document.getElementById('localRanking');
+            const globalRanking = document.getElementById('globalRanking');
+            const playerNameInput = document.getElementById('playerNameInput');
+            
+            function toggleRankingType() {
+                if (globalRanking.checked) {
+                    playerNameInput.style.display = 'block';
+                } else {
+                    playerNameInput.style.display = 'none';
+                }
+                updateRankingDisplay();
+            }
+            
+            localRanking.addEventListener('change', toggleRankingType);
+            globalRanking.addEventListener('change', toggleRankingType);
+            
+            // Firebase初期化
+            if (typeof initFirebase === 'function') {
+                initFirebase();
+            }
+        });
+    </script>
+</body>
+</html>
