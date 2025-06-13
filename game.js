@@ -1705,13 +1705,10 @@ function gameOver() {
             gameState.enemySpawnInterval = null;
         }
         
-        // 3秒後にタイトル画面へ自動遷移（モバイル対応）
-        setTimeout(() => {
-            returnToTitle();
-        }, 3000);
+        // ユーザーによる選択を待つ（自動遷移なし）
     } catch (error) {
         console.error('Game over error:', error);
-        // エラー時も強制的にタイトルへ
+        // エラー時のみ強制的にタイトルへ
         setTimeout(() => {
             returnToTitle();
         }, 1000);
@@ -1896,6 +1893,13 @@ function returnToTitle() {
         
         // ランキングを更新
         updateRankingDisplay();
+        
+        // スタートボタンを正常状態に戻す
+        const startButton = document.getElementById('startButton');
+        if (startButton) {
+            startButton.disabled = false;
+            startButton.textContent = 'ゲームを開始';
+        }
         
     } catch (error) {
         console.error('Return to title error:', error);
@@ -2158,6 +2162,61 @@ async function startGame() {
             gameState.enemies.push(new Enemy());
         }
     }, 3000);
+    
+    // ボタンを元に戻す
+    startButton.disabled = false;
+    startButton.textContent = 'ゲームを開始';
+}
+
+// リトライ機能
+function retryGame() {
+    // ゲームオーバー画面を非表示
+    document.getElementById('gameOverScreen').style.display = 'none';
+    
+    // ゲーム状態をリセット
+    resetGameState();
+    
+    // すぐにゲームを再開始
+    startGame();
+}
+
+// ゲーム状態の完全リセット
+function resetGameState() {
+    // ゲーム状態を初期化
+    gameState.isPlaying = false;
+    gameState.isStarted = false;
+    gameState.score = 0;
+    gameState.health = 100;
+    gameState.ammo = 30;
+    gameState.isReloading = false;
+    gameState.totalEnemiesKilled = 0;
+    gameState.bulletSizeMultiplier = 1;
+    gameState.isJumping = false;
+    gameState.jumpVelocity = 0;
+    gameState.playerY = 1.6;
+    
+    // オブジェクトをクリア
+    clearEnemies();
+    clearBullets();
+    clearParticleEffects();
+    
+    // UIを更新
+    updateUI();
+    
+    // スポーンインターバルをクリア
+    if (gameState.enemySpawnInterval) {
+        clearInterval(gameState.enemySpawnInterval);
+        gameState.enemySpawnInterval = null;
+    }
+    
+    // プレイヤー位置をリセット
+    camera.position.set(0, 1.6, 5);
+    camera.rotation.set(0, 0, 0);
+    
+    // ポインターロックを解除
+    if (!isMobile && document.pointerLockElement) {
+        document.exitPointerLock();
+    }
 }
 
 // 初期化
