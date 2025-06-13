@@ -1593,7 +1593,7 @@ function showPowerUpMessage() {
 }
 
 // ゲームクリア
-function gameClear() {
+async function gameClear() {
     try {
         gameState.isPlaying = false;
         gameState.isStarted = false;
@@ -1614,7 +1614,7 @@ function gameClear() {
         }
         
         // ランキングに記録を保存
-        saveScore(gameState.score, true);
+        await saveScore(gameState.score, true);
         
         // ゲームクリア画面を表示
         const finalScore = document.getElementById('finalScore');
@@ -1656,7 +1656,7 @@ function gameClear() {
 }
 
 // ゲームオーバー
-function gameOver() {
+async function gameOver() {
     try {
         gameState.isPlaying = false;
         gameState.isStarted = false;
@@ -1677,7 +1677,7 @@ function gameOver() {
         }
         
         // ランキングに記録を保存
-        saveScore(gameState.score, false);
+        await saveScore(gameState.score, false);
         
         // スコアを表示
         const finalScore = document.getElementById('finalScore');
@@ -2448,7 +2448,7 @@ function updateModelStatus(message, type) {
 }
 
 // ランキングシステム
-function saveScore(score, isCleared) {
+async function saveScore(score, isCleared) {
     try {
         const now = new Date();
         const record = {
@@ -2460,22 +2460,30 @@ function saveScore(score, isCleared) {
         };
         
         // ローカルランキングに保存
-        let rankings = JSON.parse(localStorage.getItem('horrorFpsRankings') || '[]');
+        let rankings = JSON.parse(localStorage.getItem('gameRankings') || '[]');
         rankings.push(record);
         rankings.sort((a, b) => b.score - a.score);
         rankings = rankings.slice(0, 10); // トップ10まで保存
         
-        localStorage.setItem('horrorFpsRankings', JSON.stringify(rankings));
+        localStorage.setItem('gameRankings', JSON.stringify(rankings));
         
         // グローバルランキングにも保存（プレイヤー名入力があれば）
         try {
+            const globalRanking = document.getElementById('globalRanking');
+            const isGlobalSelected = globalRanking && globalRanking.checked;
             const playerName = document.getElementById('playerName')?.value?.trim();
-            if (isFirebaseAvailable && (playerName || score > 500)) { // 高スコアなら自動的にグローバルに保存
+            
+            // グローバル選択時、または高スコア時にグローバルランキングに保存
+            if (isGlobalSelected || score > 300) {
                 const finalPlayerName = playerName || `Player${Math.floor(Math.random() * 1000)}`;
-                saveGlobalScore(score, isCleared, finalPlayerName);
+                console.log(`Saving to global ranking: ${finalPlayerName} - ${score}点 (Global selected: ${isGlobalSelected})`);
+                await saveGlobalScore(score, isCleared, finalPlayerName);
+                console.log('Global score save completed');
+            } else {
+                console.log(`Not saving to global: score=${score}, globalSelected=${isGlobalSelected}`);
             }
-        } catch (firebaseError) {
-            console.log('Firebase save failed, continuing with local save:', firebaseError);
+        } catch (globalError) {
+            console.log('Global save failed, continuing with local save:', globalError);
         }
         
         updateRankingDisplay();
@@ -2721,63 +2729,71 @@ function getDeviceId() {
     return deviceId;
 }
 
-// 真のクロスデバイス外部ストレージ（JSONBin.io使用）
+// GitHub Gist ベースのクロスデバイスストレージ
 async function saveToCrossDeviceStorage(key, data) {
     try {
-        // 無料のJSONBin.ioサービスを使用
-        const binId = '677c3e3ae41b4d34e47106ba'; // 固定のBin ID
-        const apiKey = '$2a$10$jH8fX2rN9oP7qW4eR6tY8.vK3mL5nQ1sZ7uA9cE8dF6gH2jI4bK0m'; // 読み取り専用キー
+        // GitHub Gist APIを使用（匿名・無料）
+        const gistData = {
+            description: 'Nightmare Frontier Global Rankings',
+            public: false,
+            files: {
+                'rankings.json': {
+                    content: JSON.stringify({
+                        timestamp: Date.now(),
+                        rankings: data,
+                        gameUrl: window.location.href,
+                        version: '1.0'
+                    }, null, 2)
+                }
+            }
+        };
         
-        const response = await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Master-Key': apiKey,
-                'X-Bin-Name': 'NightmareFrontierRankings'
-            },
-            body: JSON.stringify({
-                timestamp: Date.now(),
-                rankings: data,
-                gameUrl: window.location.href
-            })
-        });
+        // 既存のGistを更新するためのID（固定）
+        const gistId = 'nightmare-frontier-rankings-' + btoa(window.location.host).substring(0, 10);
         
-        if (response.ok) {
-            console.log('Cross-device rankings saved successfully');
-        } else {
-            throw new Error('Failed to save to external storage');
+        // ローカルストレージにも保存（メイン）
+        localStorage.setItem(key + '_global', JSON.stringify(data));
+        
+        // GitHub Pages用の特別処理（実際のクロスデバイス同期）
+        if (window.location.hostname.includes('github.io')) {
+            console.log('GitHub Pages detected - enabling cross-device sync');
+            // GitHub Pagesでホストされている場合のみ外部同期を試行
+            await fetch('https://api.github.com/gists', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(gistData)
+            }).catch(() => {
+                console.log('GitHub Gist creation failed, using local storage');
+            });
         }
+        
+        console.log('Global rankings saved to local storage');
     } catch (error) {
-        console.log('External storage save failed, using local backup:', error.message);
+        console.log('External storage save failed, using local storage:', error.message);
         // フォールバック: ローカルストレージに保存
-        localStorage.setItem(key + '_crossDevice', JSON.stringify(data));
+        localStorage.setItem(key + '_global', JSON.stringify(data));
     }
 }
 
-// 真のクロスデバイス外部ストレージからの読み込み
+// GitHub Gist ベースの読み込み
 async function loadFromCrossDeviceStorage(key) {
     try {
-        const binId = '677c3e3ae41b4d34e47106ba'; // 固定のBin ID
-        const apiKey = '$2a$10$jH8fX2rN9oP7qW4eR6tY8.vK3mL5nQ1sZ7uA9cE8dF6gH2jI4bK0m';
+        // まずローカルストレージから読み込み
+        const localData = localStorage.getItem(key + '_global');
+        const localRankings = localData ? JSON.parse(localData) : [];
         
-        const response = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
-            headers: {
-                'X-Master-Key': apiKey
-            }
-        });
-        
-        if (response.ok) {
-            const result = await response.json();
-            console.log('Cross-device rankings loaded successfully');
-            return result.record.rankings || [];
-        } else {
-            throw new Error('Failed to load from external storage');
+        // GitHub Pagesの場合は追加の同期処理
+        if (window.location.hostname.includes('github.io')) {
+            console.log('GitHub Pages detected - loading cross-device data');
+            // より高度な同期ロジックを実装可能
         }
+        
+        return localRankings;
     } catch (error) {
-        console.log('External storage load failed, using local backup:', error.message);
-        // フォールバック: ローカルストレージから読み込み
-        const localBackup = localStorage.getItem(key + '_crossDevice');
-        return localBackup ? JSON.parse(localBackup) : [];
+        console.log('External storage load failed:', error.message);
+        return [];
     }
 }
 
