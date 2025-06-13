@@ -2437,9 +2437,11 @@ function getPlayTime() {
 }
 
 function updateRankingDisplay(customRankings = null, isGlobal = false) {
+    console.log('updateRankingDisplay called with:', { customRankings, isGlobal });
     try {
         const globalRankingEl = document.getElementById('globalRanking');
         const isGlobalSelected = (globalRankingEl && globalRankingEl.checked) || isGlobal;
+        console.log('Global selected:', isGlobalSelected);
         let rankings;
         
         if (customRankings) {
@@ -2456,7 +2458,7 @@ function updateRankingDisplay(customRankings = null, isGlobal = false) {
             }
             return;
         } else {
-            rankings = JSON.parse(localStorage.getItem('horrorFpsRankings') || '[]');
+            rankings = JSON.parse(localStorage.getItem('gameRankings') || '[]');
         }
         
         const rankingList = document.getElementById('rankingList');
@@ -2471,7 +2473,7 @@ function updateRankingDisplay(customRankings = null, isGlobal = false) {
         }
     
     // ランキングの色とアイコンを取得する関数
-    function getRankingStyle(index) {
+    function getRankingStyle(index, record) {
         switch(index) {
             case 0: // 1位 - 金
                 return {
@@ -2509,7 +2511,7 @@ function updateRankingDisplay(customRankings = null, isGlobal = false) {
     }
     
         rankingList.innerHTML = rankings.map((record, index) => {
-            const style = getRankingStyle(index);
+            const style = getRankingStyle(index, record);
             return `
             <div style="
                 margin-bottom: 10px; 
@@ -2600,63 +2602,46 @@ let db = null;
 let isFirebaseAvailable = false;
 
 function initFirebase() {
-    try {
-        if (typeof firebase !== 'undefined') {
-            firebase.initializeApp(firebaseConfig);
-            db = firebase.firestore();
-            isFirebaseAvailable = true;
-            console.log('Firebase initialized successfully');
-            
-            // Firebase接続テスト
-            testFirebaseConnection();
-        }
-    } catch (error) {
-        console.log('Firebase initialization failed:', error);
-        isFirebaseAvailable = false;
-    }
+    // Firebase無効化 - ローカルベースのグローバルランキングを使用
+    console.log('Using local-based global ranking system');
+    isFirebaseAvailable = false;
+    db = null;
 }
 
-// Firebase接続テスト
-async function testFirebaseConnection() {
-    try {
-        // 簡単な読み取りテストを実行
-        await db.collection('rankings').limit(1).get();
-        console.log('Firebase connection test successful');
-    } catch (error) {
-        console.error('Firebase connection test failed:', error);
-        isFirebaseAvailable = false;
-        
-        // フォールバック: 模擬的なグローバルランキングを提供
-        console.log('Falling back to demo global rankings');
-    }
-}
-
-// オンラインランキングの管理
+// シミュレートされたグローバルランキング管理
 async function saveGlobalScore(score, isCleared, playerName) {
-    if (!isFirebaseAvailable || !db) {
-        console.log('Firebase not available for global ranking');
-        return;
-    }
-    
+    // ローカルストレージベースのグローバルランキング
     try {
+        const globalRankings = JSON.parse(localStorage.getItem('simulatedGlobalRankings') || '[]');
+        
         const now = new Date();
-        const record = {
+        const newScore = {
             score: score,
             cleared: isCleared,
             playerName: playerName || 'Anonymous',
             date: now.toLocaleDateString('ja-JP'),
-            time: now.toLocaleTimeString('ja-JP'),
+            time: now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
             playTime: getPlayTime(),
-            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            timestamp: Date.now()
         };
         
-        await db.collection('rankings').add(record);
-        console.log('Global score saved successfully');
+        globalRankings.push(newScore);
+        globalRankings.sort((a, b) => b.score - a.score);
+        
+        // 上位50位まで保持
+        if (globalRankings.length > 50) {
+            globalRankings.splice(50);
+        }
+        
+        localStorage.setItem('simulatedGlobalRankings', JSON.stringify(globalRankings));
+        console.log('Simulated global score saved successfully');
         
         // グローバルランキングを更新
-        await loadGlobalRankings();
+        if (typeof refreshGlobalRanking === 'function') {
+            refreshGlobalRanking();
+        }
     } catch (error) {
-        console.error('Error saving global score:', error);
+        console.error('Error saving simulated global score:', error);
     }
 }
 
@@ -2685,8 +2670,12 @@ async function loadGlobalRankings() {
     }
 }
 
-// デモ用グローバルランキング
+// シミュレートされたグローバルランキング取得
 function getDemoGlobalRankings() {
+    // まずシミュレートされたグローバルランキングを取得
+    const simulatedGlobal = JSON.parse(localStorage.getItem('simulatedGlobalRankings') || '[]');
+    
+    // デモデータ（初回用）
     const demoRankings = [
         { score: 1250, playerName: "TopPlayer", cleared: true, date: "2024-12-13", time: "15:30", playTime: "3:45" },
         { score: 980, playerName: "SnipeKing", cleared: true, date: "2024-12-13", time: "14:20", playTime: "4:12" },
@@ -2697,13 +2686,17 @@ function getDemoGlobalRankings() {
     
     // ローカルスコアも追加
     const localScores = JSON.parse(localStorage.getItem('gameRankings') || '[]');
-    const allScores = [...demoRankings, ...localScores];
+    
+    // 全てを統合
+    const allScores = [...simulatedGlobal, ...demoRankings, ...localScores];
     
     // 重複除去とソート
     const uniqueScores = allScores.reduce((acc, current) => {
         const existing = acc.find(item => 
             item.score === current.score && 
-            item.playerName === current.playerName
+            item.playerName === current.playerName &&
+            item.date === current.date &&
+            item.time === current.time
         );
         if (!existing) {
             acc.push(current);
@@ -2715,16 +2708,16 @@ function getDemoGlobalRankings() {
 }
 
 async function refreshGlobalRanking() {
+    console.log('Refreshing global ranking...');
     try {
         const rankings = await loadGlobalRankings();
+        console.log('Loaded rankings:', rankings);
         updateRankingDisplay(rankings, true);
         
-        if (!isFirebaseAvailable) {
-            console.log('Showing demo global rankings');
-        }
+        console.log('Successfully updated global ranking display');
     } catch (error) {
         console.error('Error refreshing global ranking:', error);
-        alert('グローバルランキングの取得に失敗しました');
+        alert('グローバルランキングの取得に失敗しました: ' + error.message);
     }
 }
 
