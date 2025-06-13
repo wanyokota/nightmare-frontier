@@ -830,10 +830,6 @@ function createShed() {
     
     return group;
 }
-    
-    // 古い建物の廃墟を追加
-    createRuins();
-}
 
 // 古い建物の廃墟を作成
 function createRuins() {
@@ -1986,7 +1982,7 @@ function clearParticleEffects() {
 }
 
 // タイトル画面に戻る
-function returnToTitle() {
+window.returnToTitle = function returnToTitle() {
     try {
         // ゲーム状態を完全リセット
         gameState.isPlaying = false;
@@ -2212,8 +2208,8 @@ function loadStartEnemyPhoto() {
     });
 }
 
-// ゲーム開始
-async function startGame() {
+// ゲーム開始（グローバルスコープ）
+window.startGame = async function startGame() {
     console.log('Starting game...');
     const startButton = document.getElementById('startButton');
     if (!startButton) {
@@ -2336,7 +2332,7 @@ async function startGame() {
 }
 
 // リトライ機能
-function retryGame() {
+window.retryGame = function retryGame() {
     // ゲームオーバー画面を非表示
     document.getElementById('gameOverScreen').style.display = 'none';
     
@@ -2567,7 +2563,7 @@ function loadCustomEnemyModel() {
 }
 
 // デフォルトに戻す
-function resetToDefault() {
+window.resetToDefault = function resetToDefault() {
     customModel = null;
     customEnemyModel = null;
     enemyPhotoTexture = null;
@@ -2811,8 +2807,8 @@ function loadVolumeSettings() {
     }
 }
 
-// 音量調整機能
-function updateVolume(value) {
+// 音量調整機能（グローバルスコープ）
+window.updateVolume = function updateVolume(value) {
     console.log('Volume updated to:', value);
     gameState.masterVolume = value / 100;
     const volumeElement = document.getElementById('volumeValue');
@@ -3100,7 +3096,7 @@ async function getDemoGlobalRankings() {
     }
 }
 
-async function refreshGlobalRanking() {
+window.refreshGlobalRanking = async function refreshGlobalRanking() {
     console.log('Refreshing global ranking...');
     try {
         const rankings = await loadGlobalRankings();
@@ -3112,6 +3108,130 @@ async function refreshGlobalRanking() {
         console.error('Error refreshing global ranking:', error);
         alert('グローバルランキングの取得に失敗しました: ' + error.message);
     }
+}
+
+// ローカルランキングクリア
+window.clearRanking = function clearRanking() {
+    if (confirm('ローカルランキングをクリアしますか？')) {
+        localStorage.removeItem('gameRankings');
+        updateRankingDisplay();
+        alert('ローカルランキングをクリアしました');
+    }
+}
+
+// カスタムモデル読み込み（障害物用）
+window.loadCustomModel = function loadCustomModel() {
+    const fileInput = document.getElementById('modelFile');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        alert('ファイルを選択してください');
+        return;
+    }
+    
+    updateModelStatus('モデルを読み込み中...', 'loading');
+    
+    const fileName = file.name.toLowerCase();
+    const fileURL = URL.createObjectURL(file);
+    
+    let loader;
+    
+    if (fileName.endsWith('.fbx')) {
+        loader = new THREE.FBXLoader();
+    } else if (fileName.endsWith('.obj')) {
+        loader = new THREE.OBJLoader();
+    } else if (fileName.endsWith('.gltf') || fileName.endsWith('.glb')) {
+        loader = new THREE.GLTFLoader();
+    } else {
+        updateModelStatus('対応していないファイル形式です', 'error');
+        return;
+    }
+    
+    loader.load(fileURL, 
+        function(model) {
+            let actualModel = model;
+            if (model.scene) {
+                actualModel = model.scene;
+            }
+            
+            customModel = actualModel;
+            
+            // 既存の障害物をクリアして新しいモデルで再作成
+            clearObstacles();
+            createObstacles();
+            
+            updateModelStatus('モデルの読み込みに成功しました！', 'success');
+            
+            // メモリリークを防ぐためURLを解放
+            URL.revokeObjectURL(fileURL);
+        },
+        function(progress) {
+            if (progress.total > 0) {
+                const percent = Math.round((progress.loaded / progress.total) * 100);
+                updateModelStatus(`読み込み中... ${percent}%`, 'loading');
+            }
+        },
+        function(error) {
+            console.error('Model loading error:', error);
+            updateModelStatus('モデルの読み込みに失敗しました', 'error');
+            URL.revokeObjectURL(fileURL);
+        }
+    );
+}
+
+// カスタム敵モデル読み込み
+window.loadCustomEnemyModel = function loadCustomEnemyModel() {
+    const fileInput = document.getElementById('enemyModelFile');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        alert('ファイルを選択してください');
+        return;
+    }
+    
+    updateModelStatus('敵モデルを読み込み中...', 'loading');
+    
+    const fileName = file.name.toLowerCase();
+    const fileURL = URL.createObjectURL(file);
+    
+    let loader;
+    
+    if (fileName.endsWith('.fbx')) {
+        loader = new THREE.FBXLoader();
+    } else if (fileName.endsWith('.obj')) {
+        loader = new THREE.OBJLoader();
+    } else if (fileName.endsWith('.gltf') || fileName.endsWith('.glb')) {
+        loader = new THREE.GLTFLoader();
+    } else {
+        updateModelStatus('対応していないファイル形式です', 'error');
+        return;
+    }
+    
+    loader.load(fileURL, 
+        function(model) {
+            let actualModel = model;
+            if (model.scene) {
+                actualModel = model.scene;
+            }
+            
+            customEnemyModel = actualModel;
+            updateModelStatus('敵モデルの読み込みに成功しました！', 'success');
+            
+            // メモリリークを防ぐためURLを解放
+            URL.revokeObjectURL(fileURL);
+        },
+        function(progress) {
+            if (progress.total > 0) {
+                const percent = Math.round((progress.loaded / progress.total) * 100);
+                updateModelStatus(`読み込み中... ${percent}%`, 'loading');
+            }
+        },
+        function(error) {
+            console.error('Enemy model loading error:', error);
+            updateModelStatus('敵モデルの読み込みに失敗しました', 'error');
+            URL.revokeObjectURL(fileURL);
+        }
+    );
 }
 
 // ゲーム開始
