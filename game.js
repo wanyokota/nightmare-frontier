@@ -1337,17 +1337,19 @@ function initMobileControls() {
     document.getElementById('mobileControls').style.display = 'block';
     document.getElementById('touchMoveArea').style.display = 'block';
     
-    // 射撃ボタン
+    // 射撃ボタン（マルチタッチ対応）
     const shootButton = document.getElementById('shootButton');
     shootButton.addEventListener('touchstart', (e) => {
         e.preventDefault();
+        e.stopPropagation(); // 他のタッチイベントに影響しないように
         shoot();
     });
     
-    // ジャンプボタン
+    // ジャンプボタン（マルチタッチ対応）
     const jumpButton = document.getElementById('jumpButton');
     jumpButton.addEventListener('touchstart', (e) => {
         e.preventDefault();
+        e.stopPropagation(); // 他のタッチイベントに影響しないように
         if (!gameState.isJumping) {
             controls.jump = true;
             gameState.isJumping = true;
@@ -1358,10 +1360,11 @@ function initMobileControls() {
         }
     });
     
-    // リロードボタン
+    // リロードボタン（マルチタッチ対応）
     const reloadButton = document.getElementById('reloadButton');
     reloadButton.addEventListener('touchstart', (e) => {
         e.preventDefault();
+        e.stopPropagation(); // 他のタッチイベントに影響しないように
         reload();
     });
     
@@ -1369,37 +1372,69 @@ function initMobileControls() {
     initTouchMoveControls();
 }
 
-// タッチ移動コントロール
+// タッチ移動コントロール（マルチタッチ対応）
 function initTouchMoveControls() {
     const moveStick = document.getElementById('moveStick');
     const moveStickKnob = document.getElementById('moveStickKnob');
     const stickRadius = 75;
-    let stickActive = false;
+    let stickTouchId = null; // 移動スティック専用のタッチID
     
     moveStick.addEventListener('touchstart', (e) => {
         e.preventDefault();
-        stickActive = true;
-        const touch = e.touches[0];
-        const rect = moveStick.getBoundingClientRect();
-        updateStickPosition(touch.clientX - rect.left - stickRadius, touch.clientY - rect.top - stickRadius);
+        
+        // 最初のタッチを移動用として使用
+        if (stickTouchId === null && e.touches.length > 0) {
+            stickTouchId = e.touches[0].identifier;
+            const touch = e.touches[0];
+            const rect = moveStick.getBoundingClientRect();
+            updateStickPosition(touch.clientX - rect.left - stickRadius, touch.clientY - rect.top - stickRadius);
+        }
     });
     
     moveStick.addEventListener('touchmove', (e) => {
         e.preventDefault();
-        if (!stickActive) return;
-        const touch = e.touches[0];
-        const rect = moveStick.getBoundingClientRect();
-        updateStickPosition(touch.clientX - rect.left - stickRadius, touch.clientY - rect.top - stickRadius);
+        if (stickTouchId === null) return;
+        
+        // 移動用タッチのみを処理
+        for (let touch of e.touches) {
+            if (touch.identifier === stickTouchId) {
+                const rect = moveStick.getBoundingClientRect();
+                updateStickPosition(touch.clientX - rect.left - stickRadius, touch.clientY - rect.top - stickRadius);
+                break;
+            }
+        }
     });
     
     moveStick.addEventListener('touchend', (e) => {
         e.preventDefault();
-        stickActive = false;
-        moveStickKnob.style.transform = 'translate(-50%, -50%)';
-        controls.moveForward = false;
-        controls.moveBackward = false;
-        controls.moveLeft = false;
-        controls.moveRight = false;
+        
+        // 移動用タッチが終了した場合のみリセット
+        for (let touch of e.changedTouches) {
+            if (touch.identifier === stickTouchId) {
+                stickTouchId = null;
+                moveStickKnob.style.transform = 'translate(-50%, -50%)';
+                controls.moveForward = false;
+                controls.moveBackward = false;
+                controls.moveLeft = false;
+                controls.moveRight = false;
+                break;
+            }
+        }
+    });
+    
+    // タッチキャンセル対応
+    moveStick.addEventListener('touchcancel', (e) => {
+        for (let touch of e.changedTouches) {
+            if (touch.identifier === stickTouchId) {
+                stickTouchId = null;
+                moveStickKnob.style.transform = 'translate(-50%, -50%)';
+                controls.moveForward = false;
+                controls.moveBackward = false;
+                controls.moveLeft = false;
+                controls.moveRight = false;
+                break;
+            }
+        }
     });
     
     function updateStickPosition(x, y) {
@@ -1422,40 +1457,95 @@ function initTouchMoveControls() {
     }
 }
 
-// タッチで視点移動
+// マルチタッチで視点移動
 function initTouchCameraControls() {
-    let touchX = null;
-    let touchY = null;
+    let activeTouches = new Map(); // タッチIDと座標を管理
+    let cameraTouch = null; // 視点移動用のタッチ
     
     renderer.domElement.addEventListener('touchstart', (e) => {
-        if (e.touches.length === 1) {
-            touchX = e.touches[0].pageX;
-            touchY = e.touches[0].pageY;
-            isTouchMoving = true;
+        e.preventDefault();
+        
+        // 新しいタッチを追加
+        for (let touch of e.changedTouches) {
+            const touchInfo = {
+                id: touch.identifier,
+                x: touch.pageX,
+                y: touch.pageY,
+                startX: touch.pageX,
+                startY: touch.pageY
+            };
+            activeTouches.set(touch.identifier, touchInfo);
+        }
+        
+        // 視点移動用のタッチを決定（右側の画面をタッチした場合）
+        if (!cameraTouch) {
+            for (let touch of e.changedTouches) {
+                if (touch.pageX > window.innerWidth / 2) {
+                    cameraTouch = touch.identifier;
+                    break;
+                }
+            }
         }
     });
     
     renderer.domElement.addEventListener('touchmove', (e) => {
-        if (!isTouchMoving || !gameState.isPlaying || e.touches.length !== 1) return;
+        if (!gameState.isPlaying) return;
         
         e.preventDefault();
         
-        const deltaX = e.touches[0].pageX - touchX;
-        const deltaY = e.touches[0].pageY - touchY;
-        
-        touchX = e.touches[0].pageX;
-        touchY = e.touches[0].pageY;
-        
-        // カメラ回転（スワイプで視点移動）
-        euler.setFromQuaternion(camera.quaternion);
-        euler.y -= deltaX * 0.005;
-        euler.x -= deltaY * 0.005;
-        euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, euler.x));
-        camera.quaternion.setFromEuler(euler);
+        // タッチ情報を更新
+        for (let touch of e.changedTouches) {
+            if (activeTouches.has(touch.identifier)) {
+                const touchInfo = activeTouches.get(touch.identifier);
+                const deltaX = touch.pageX - touchInfo.x;
+                const deltaY = touch.pageY - touchInfo.y;
+                
+                // 視点移動（右側のタッチ）
+                if (touch.identifier === cameraTouch) {
+                    euler.setFromQuaternion(camera.quaternion);
+                    euler.y -= deltaX * 0.005;
+                    euler.x -= deltaY * 0.005;
+                    euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, euler.x));
+                    camera.quaternion.setFromEuler(euler);
+                }
+                
+                // 座標を更新
+                touchInfo.x = touch.pageX;
+                touchInfo.y = touch.pageY;
+            }
+        }
     });
     
-    renderer.domElement.addEventListener('touchend', () => {
-        isTouchMoving = false;
+    renderer.domElement.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        
+        // 終了したタッチを削除
+        for (let touch of e.changedTouches) {
+            activeTouches.delete(touch.identifier);
+            
+            // 視点移動用タッチが終了した場合
+            if (touch.identifier === cameraTouch) {
+                cameraTouch = null;
+                
+                // 他のタッチがあれば視点移動を引き継ぐ
+                for (let [id, touchInfo] of activeTouches) {
+                    if (touchInfo.x > window.innerWidth / 2) {
+                        cameraTouch = id;
+                        break;
+                    }
+                }
+            }
+        }
+    });
+    
+    // タッチキャンセル時の処理
+    renderer.domElement.addEventListener('touchcancel', (e) => {
+        for (let touch of e.changedTouches) {
+            activeTouches.delete(touch.identifier);
+            if (touch.identifier === cameraTouch) {
+                cameraTouch = null;
+            }
+        }
     });
 }
 
