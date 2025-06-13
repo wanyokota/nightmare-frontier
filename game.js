@@ -1458,42 +1458,66 @@ function showPowerUpMessage() {
 
 // ゲームクリア
 function gameClear() {
-    gameState.isPlaying = false;
-    document.exitPointerLock();
-    
-    // レーダーを非表示
-    document.getElementById('radar').style.display = 'none';
-    
-    // ランキングに記録を保存
-    saveScore(gameState.score, true);
-    
-    // ゲームクリア画面を表示
-    document.getElementById('finalScore').textContent = gameState.score;
-    document.getElementById('gameOverScreen').style.display = 'flex';
-    document.querySelector('#gameOverContent h2').textContent = 'ゲームクリア！';
-    document.querySelector('#gameOverContent h2').style.color = '#4CAF50';
-    
-    // 敵を停止
-    clearEnemies();
+    try {
+        gameState.isPlaying = false;
+        document.exitPointerLock();
+        
+        // レーダーを非表示
+        const radar = document.getElementById('radar');
+        if (radar) radar.style.display = 'none';
+        
+        // ランキングに記録を保存
+        saveScore(gameState.score, true);
+        
+        // ゲームクリア画面を表示
+        const finalScore = document.getElementById('finalScore');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const gameOverTitle = document.querySelector('#gameOverContent h2');
+        
+        if (finalScore) finalScore.textContent = gameState.score;
+        if (gameOverScreen) gameOverScreen.style.display = 'flex';
+        if (gameOverTitle) {
+            gameOverTitle.textContent = 'ゲームクリア！';
+            gameOverTitle.style.color = '#4CAF50';
+        }
+        
+        // 敵を停止
+        clearEnemies();
+    } catch (error) {
+        console.error('Game clear error:', error);
+    }
 }
 
 // ゲームオーバー
 function gameOver() {
-    gameState.isPlaying = false;
-    document.exitPointerLock();
-    
-    // レーダーを非表示
-    document.getElementById('radar').style.display = 'none';
-    
-    // ランキングに記録を保存
-    saveScore(gameState.score, false);
-    
-    // スコアを表示
-    document.getElementById('finalScore').textContent = gameState.score;
-    document.getElementById('gameOverScreen').style.display = 'flex';
-    
-    // 敵を停止
-    clearEnemies();
+    try {
+        gameState.isPlaying = false;
+        document.exitPointerLock();
+        
+        // レーダーを非表示
+        const radar = document.getElementById('radar');
+        if (radar) radar.style.display = 'none';
+        
+        // ランキングに記録を保存
+        saveScore(gameState.score, false);
+        
+        // スコアを表示
+        const finalScore = document.getElementById('finalScore');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const gameOverTitle = document.querySelector('#gameOverContent h2');
+        
+        if (finalScore) finalScore.textContent = gameState.score;
+        if (gameOverScreen) gameOverScreen.style.display = 'flex';
+        if (gameOverTitle) {
+            gameOverTitle.textContent = 'ゲームオーバー';
+            gameOverTitle.style.color = 'white';
+        }
+        
+        // 敵を停止
+        clearEnemies();
+    } catch (error) {
+        console.error('Game over error:', error);
+    }
 }
 
 // プレイヤーの移動
@@ -2072,31 +2096,39 @@ function updateModelStatus(message, type) {
 
 // ランキングシステム
 function saveScore(score, isCleared) {
-    const now = new Date();
-    const record = {
-        score: score,
-        cleared: isCleared,
-        date: now.toLocaleDateString('ja-JP'),
-        time: now.toLocaleTimeString('ja-JP'),
-        playTime: getPlayTime()
-    };
-    
-    // ローカルランキングに保存
-    let rankings = JSON.parse(localStorage.getItem('horrorFpsRankings') || '[]');
-    rankings.push(record);
-    rankings.sort((a, b) => b.score - a.score);
-    rankings = rankings.slice(0, 10); // トップ10まで保存
-    
-    localStorage.setItem('horrorFpsRankings', JSON.stringify(rankings));
-    
-    // グローバルランキングにも保存（プレイヤー名入力があれば）
-    const playerName = document.getElementById('playerName')?.value?.trim();
-    if (isFirebaseAvailable && (playerName || score > 500)) { // 高スコアなら自動的にグローバルに保存
-        const finalPlayerName = playerName || `Player${Math.floor(Math.random() * 1000)}`;
-        saveGlobalScore(score, isCleared, finalPlayerName);
+    try {
+        const now = new Date();
+        const record = {
+            score: score,
+            cleared: isCleared,
+            date: now.toLocaleDateString('ja-JP'),
+            time: now.toLocaleTimeString('ja-JP'),
+            playTime: getPlayTime()
+        };
+        
+        // ローカルランキングに保存
+        let rankings = JSON.parse(localStorage.getItem('horrorFpsRankings') || '[]');
+        rankings.push(record);
+        rankings.sort((a, b) => b.score - a.score);
+        rankings = rankings.slice(0, 10); // トップ10まで保存
+        
+        localStorage.setItem('horrorFpsRankings', JSON.stringify(rankings));
+        
+        // グローバルランキングにも保存（プレイヤー名入力があれば）
+        try {
+            const playerName = document.getElementById('playerName')?.value?.trim();
+            if (isFirebaseAvailable && (playerName || score > 500)) { // 高スコアなら自動的にグローバルに保存
+                const finalPlayerName = playerName || `Player${Math.floor(Math.random() * 1000)}`;
+                saveGlobalScore(score, isCleared, finalPlayerName);
+            }
+        } catch (firebaseError) {
+            console.log('Firebase save failed, continuing with local save:', firebaseError);
+        }
+        
+        updateRankingDisplay();
+    } catch (error) {
+        console.error('Score save error:', error);
     }
-    
-    updateRankingDisplay();
 }
 
 function getPlayTime() {
@@ -2111,27 +2143,38 @@ function getPlayTime() {
 }
 
 function updateRankingDisplay(customRankings = null, isGlobal = false) {
-    const isGlobalSelected = document.getElementById('globalRanking')?.checked || isGlobal;
-    let rankings;
-    
-    if (customRankings) {
-        rankings = customRankings;
-    } else if (isGlobalSelected) {
-        // グローバルランキングを非同期で読み込み
-        loadGlobalRankings().then(globalRankings => {
-            updateRankingDisplay(globalRankings, true);
-        });
-        return;
-    } else {
-        rankings = JSON.parse(localStorage.getItem('horrorFpsRankings') || '[]');
-    }
-    
-    const rankingList = document.getElementById('rankingList');
-    
-    if (rankings.length === 0) {
-        rankingList.innerHTML = `<div style="color: #ccc;">${isGlobalSelected ? 'グローバルランキングがありません' : 'まだ記録がありません'}</div>`;
-        return;
-    }
+    try {
+        const globalRankingEl = document.getElementById('globalRanking');
+        const isGlobalSelected = (globalRankingEl && globalRankingEl.checked) || isGlobal;
+        let rankings;
+        
+        if (customRankings) {
+            rankings = customRankings;
+        } else if (isGlobalSelected) {
+            // グローバルランキングを非同期で読み込み
+            if (typeof loadGlobalRankings === 'function') {
+                loadGlobalRankings().then(globalRankings => {
+                    updateRankingDisplay(globalRankings, true);
+                }).catch(error => {
+                    console.log('Global ranking load failed:', error);
+                    updateRankingDisplay([], true);
+                });
+            }
+            return;
+        } else {
+            rankings = JSON.parse(localStorage.getItem('horrorFpsRankings') || '[]');
+        }
+        
+        const rankingList = document.getElementById('rankingList');
+        if (!rankingList) {
+            console.log('Ranking list element not found');
+            return;
+        }
+        
+        if (rankings.length === 0) {
+            rankingList.innerHTML = `<div style="color: #ccc;">${isGlobalSelected ? 'グローバルランキングがありません' : 'まだ記録がありません'}</div>`;
+            return;
+        }
     
     // ランキングの色とアイコンを取得する関数
     function getRankingStyle(index) {
@@ -2171,33 +2214,40 @@ function updateRankingDisplay(customRankings = null, isGlobal = false) {
         }
     }
     
-    rankingList.innerHTML = rankings.map((record, index) => {
-        const style = getRankingStyle(index);
-        return `
-        <div style="
-            margin-bottom: 10px; 
-            padding: 12px; 
-            background: ${style.background}; 
-            border-radius: 8px;
-            border: ${style.border};
-            box-shadow: ${style.shadow};
-            transition: transform 0.2s;
-        " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+        rankingList.innerHTML = rankings.map((record, index) => {
+            const style = getRankingStyle(index);
+            return `
             <div style="
-                font-weight: bold; 
-                color: ${style.color};
-                font-size: ${index < 3 ? '16px' : '14px'};
-                text-shadow: ${index < 3 ? '0 0 5px currentColor' : 'none'};
-            ">
-                ${style.icon} ${index + 1}位: ${record.score}点 ${record.cleared ? '【クリア】' : '【失敗】'}
-                ${isGlobalSelected && record.playerName ? ` - ${record.playerName}` : ''}
+                margin-bottom: 10px; 
+                padding: 12px; 
+                background: ${style.background}; 
+                border-radius: 8px;
+                border: ${style.border};
+                box-shadow: ${style.shadow};
+                transition: transform 0.2s;
+            " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                <div style="
+                    font-weight: bold; 
+                    color: ${style.color};
+                    font-size: ${index < 3 ? '16px' : '14px'};
+                    text-shadow: ${index < 3 ? '0 0 5px currentColor' : 'none'};
+                ">
+                    ${style.icon} ${index + 1}位: ${record.score || 0}点 ${record.cleared ? '【クリア】' : '【失敗】'}
+                    ${isGlobalSelected && record.playerName ? ` - ${record.playerName}` : ''}
+                </div>
+                <div style="font-size: 12px; color: #ccc; margin-top: 4px;">
+                    ${record.date || '不明'} ${record.time || '不明'} (プレイ時間: ${record.playTime || '不明'})
+                </div>
             </div>
-            <div style="font-size: 12px; color: #ccc; margin-top: 4px;">
-                ${record.date} ${record.time} (プレイ時間: ${record.playTime})
-            </div>
-        </div>
-    `;
-    }).join('');
+        `;
+        }).join('');
+    } catch (error) {
+        console.error('Ranking display error:', error);
+        const rankingList = document.getElementById('rankingList');
+        if (rankingList) {
+            rankingList.innerHTML = '<div style="color: #ff6666;">ランキング表示エラー</div>';
+        }
+    }
 }
 
 function clearRanking() {
