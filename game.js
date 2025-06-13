@@ -2214,7 +2214,12 @@ function loadStartEnemyPhoto() {
 
 // ゲーム開始
 async function startGame() {
+    console.log('Starting game...');
     const startButton = document.getElementById('startButton');
+    if (!startButton) {
+        console.error('Start button not found!');
+        return;
+    }
     startButton.disabled = true;
     startButton.textContent = '準備中...';
     
@@ -2265,9 +2270,14 @@ async function startGame() {
     }
     
     // スタート画面を非表示
-    document.getElementById('startScreen').style.display = 'none';
+    console.log('Hiding start screen...');
+    const startScreen = document.getElementById('startScreen');
+    if (startScreen) {
+        startScreen.style.display = 'none';
+    }
     
     // ゲーム状態を開始
+    console.log('Setting game state to started...');
     gameState.isStarted = true;
     gameState.gameStartTime = Date.now(); // ゲーム開始時間を記録
     
@@ -2276,6 +2286,9 @@ async function startGame() {
         gameState.isPlaying = true;
         initMobileControls();
         initTouchCameraControls();
+    } else {
+        // PCの場合はポインターロック処理
+        gameState.isPlaying = false; // クリック待ち状態
     }
     
     // ゲーム中の音楽と環境音を開始
@@ -2319,6 +2332,7 @@ async function startGame() {
     // ボタンを元に戻す
     startButton.disabled = false;
     startButton.textContent = 'ゲームを開始';
+    console.log('Game start completed successfully!');
 }
 
 // リトライ機能
@@ -2799,8 +2813,12 @@ function loadVolumeSettings() {
 
 // 音量調整機能
 function updateVolume(value) {
+    console.log('Volume updated to:', value);
     gameState.masterVolume = value / 100;
-    document.getElementById('volumeValue').textContent = value + '%';
+    const volumeElement = document.getElementById('volumeValue');
+    if (volumeElement) {
+        volumeElement.textContent = value + '%';
+    }
     
     // ローカルストレージに保存
     localStorage.setItem('nightmareFrontierVolume', value);
