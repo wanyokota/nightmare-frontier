@@ -715,34 +715,34 @@ function createBuilding(type) {
 function createSmallHouse() {
     const group = new THREE.Group();
     
-    // 基礎部分
-    const baseGeometry = new THREE.BoxGeometry(3, 2.5, 3);
+    // 基礎部分 - サイズを小さく
+    const baseGeometry = new THREE.BoxGeometry(2, 2, 2);
     const baseMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 }); // 茶色
     const base = new THREE.Mesh(baseGeometry, baseMaterial);
     group.add(base);
     
     // 屋根
-    const roofGeometry = new THREE.ConeGeometry(2.2, 1.5, 4);
+    const roofGeometry = new THREE.ConeGeometry(1.5, 1, 4);
     const roofMaterial = new THREE.MeshLambertMaterial({ color: 0x654321 }); // 濃い茶色
     const roof = new THREE.Mesh(roofGeometry, roofMaterial);
-    roof.position.y = 2;
+    roof.position.y = 1.5;
     roof.rotation.y = Math.PI / 4;
     group.add(roof);
     
     // ドア
-    const doorGeometry = new THREE.BoxGeometry(0.8, 1.8, 0.1);
+    const doorGeometry = new THREE.BoxGeometry(0.5, 1.2, 0.05);
     const doorMaterial = new THREE.MeshLambertMaterial({ color: 0x4a2c17 });
     const door = new THREE.Mesh(doorGeometry, doorMaterial);
-    door.position.set(0, -0.35, 1.51);
+    door.position.set(0, -0.4, 1.01);
     group.add(door);
     
     // 窓
-    const windowGeometry = new THREE.BoxGeometry(0.6, 0.6, 0.1);
+    const windowGeometry = new THREE.BoxGeometry(0.4, 0.4, 0.05);
     const windowMaterial = new THREE.MeshLambertMaterial({ color: 0x87CEEB }); // 水色
     const window1 = new THREE.Mesh(windowGeometry, windowMaterial);
-    window1.position.set(-0.8, 0.5, 1.51);
+    window1.position.set(-0.6, 0.3, 1.01);
     const window2 = new THREE.Mesh(windowGeometry, windowMaterial);
-    window2.position.set(0.8, 0.5, 1.51);
+    window2.position.set(0.6, 0.3, 1.01);
     group.add(window1);
     group.add(window2);
     
@@ -753,24 +753,24 @@ function createSmallHouse() {
 function createLargeHouse() {
     const group = new THREE.Group();
     
-    // メイン構造
-    const mainGeometry = new THREE.BoxGeometry(5, 3, 4);
+    // メイン構造 - サイズを小さく
+    const mainGeometry = new THREE.BoxGeometry(3, 2.5, 2.5);
     const mainMaterial = new THREE.MeshLambertMaterial({ color: 0xA0522D }); // より明るい茶色
     const main = new THREE.Mesh(mainGeometry, mainMaterial);
     group.add(main);
     
     // 屋根
-    const roofGeometry = new THREE.BoxGeometry(5.5, 0.3, 4.5);
+    const roofGeometry = new THREE.BoxGeometry(3.2, 0.2, 2.7);
     const roofMaterial = new THREE.MeshLambertMaterial({ color: 0x8B0000 }); // 暗い赤
     const roof = new THREE.Mesh(roofGeometry, roofMaterial);
-    roof.position.y = 1.65;
+    roof.position.y = 1.35;
     group.add(roof);
     
     // 煙突
-    const chimneyGeometry = new THREE.BoxGeometry(0.4, 1, 0.4);
+    const chimneyGeometry = new THREE.BoxGeometry(0.2, 0.8, 0.2);
     const chimneyMaterial = new THREE.MeshLambertMaterial({ color: 0x696969 });
     const chimney = new THREE.Mesh(chimneyGeometry, chimneyMaterial);
-    chimney.position.set(1.5, 2.15, 1);
+    chimney.position.set(1, 1.75, 0.8);
     group.add(chimney);
     
     return group;
@@ -780,25 +780,25 @@ function createLargeHouse() {
 function createTower() {
     const group = new THREE.Group();
     
-    // メインタワー
-    const towerGeometry = new THREE.CylinderGeometry(1.2, 1.5, 5, 8);
+    // メインタワー - サイズを小さく
+    const towerGeometry = new THREE.CylinderGeometry(0.8, 1, 3, 8);
     const towerMaterial = new THREE.MeshLambertMaterial({ color: 0x708090 }); // スレートグレー
     const tower = new THREE.Mesh(towerGeometry, towerMaterial);
     group.add(tower);
     
     // 屋根（円錐）
-    const roofGeometry = new THREE.ConeGeometry(1.5, 1.2, 8);
+    const roofGeometry = new THREE.ConeGeometry(1, 0.8, 8);
     const roofMaterial = new THREE.MeshLambertMaterial({ color: 0x2F4F4F }); // 暗いスレートグレー
     const roof = new THREE.Mesh(roofGeometry, roofMaterial);
-    roof.position.y = 3.1;
+    roof.position.y = 1.9;
     group.add(roof);
     
     // 窓（複数階）
-    for (let i = 0; i < 3; i++) {
-        const windowGeometry = new THREE.BoxGeometry(0.3, 0.4, 0.1);
+    for (let i = 0; i < 2; i++) {
+        const windowGeometry = new THREE.BoxGeometry(0.2, 0.3, 0.05);
         const windowMaterial = new THREE.MeshLambertMaterial({ color: 0xFFD700 }); // 金色（灯り）
         const window = new THREE.Mesh(windowGeometry, windowMaterial);
-        window.position.set(1.3, -1 + i * 1.5, 0);
+        window.position.set(0.9, -0.5 + i * 1, 0);
         group.add(window);
     }
     
@@ -810,21 +810,21 @@ function createShed() {
     const group = new THREE.Group();
     
     // 基礎
-    const baseGeometry = new THREE.BoxGeometry(2, 2, 2.5);
+    const baseGeometry = new THREE.BoxGeometry(1.5, 1.5, 2);
     const baseMaterial = new THREE.MeshLambertMaterial({ color: 0xDEB887 }); // バーライウッド
     const base = new THREE.Mesh(baseGeometry, baseMaterial);
     group.add(base);
     
     // 傾斜屋根
-    const roofGeometry = new THREE.BoxGeometry(2.2, 0.2, 2.7);
+    const roofGeometry = new THREE.BoxGeometry(1.7, 0.15, 2.2);
     const roofMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
     const roof1 = new THREE.Mesh(roofGeometry, roofMaterial);
-    roof1.position.y = 1.3;
+    roof1.position.y = 1;
     roof1.rotation.x = -0.3;
     group.add(roof1);
     
     const roof2 = new THREE.Mesh(roofGeometry, roofMaterial);
-    roof2.position.y = 1.3;
+    roof2.position.y = 1;
     roof2.rotation.x = 0.3;
     group.add(roof2);
     
@@ -838,9 +838,9 @@ function createRuins() {
     // 壊れた壁（古い建物の残骸）
     for (let i = 0; i < 4; i++) {
         const wallGeometry = new THREE.BoxGeometry(
-            Math.random() * 2 + 2, 
-            Math.random() * 1.5 + 1.5, 
-            0.4
+            Math.random() * 1.2 + 1.2, 
+            Math.random() * 1 + 1, 
+            0.3
         );
         const wall = new THREE.Mesh(wallGeometry, ruinMaterial);
         wall.position.set(
@@ -857,12 +857,12 @@ function createRuins() {
     
     // 古い石柱
     for (let i = 0; i < 3; i++) {
-        const pillarGeometry = new THREE.CylinderGeometry(0.3, 0.4, 3, 8);
+        const pillarGeometry = new THREE.CylinderGeometry(0.2, 0.25, 2, 8);
         const pillarMaterial = new THREE.MeshLambertMaterial({ color: 0xA0A0A0 }); // 明るいグレー
         const pillar = new THREE.Mesh(pillarGeometry, pillarMaterial);
         pillar.position.set(
             (Math.random() - 0.5) * 40,
-            1.5,
+            1,
             (Math.random() - 0.5) * 40
         );
         pillar.castShadow = true;
@@ -1944,8 +1944,20 @@ function checkCollisionWithObstacles(x, z) {
             Math.pow(z - obstacle.position.z, 2)
         );
         
-        const obstacleRadius = obstacle.geometry.parameters ? 
-            Math.max(obstacle.geometry.parameters.width || 1, obstacle.geometry.parameters.depth || 1) / 2 : 1;
+        let obstacleRadius = 1; // デフォルト値
+        
+        // Groupの場合はbounding boxを使用
+        if (obstacle.isGroup || obstacle.type === 'Group') {
+            const box = new THREE.Box3().setFromObject(obstacle);
+            const size = box.getSize(new THREE.Vector3());
+            obstacleRadius = Math.max(size.x, size.z) / 2;
+        } else if (obstacle.geometry && obstacle.geometry.parameters) {
+            // 個別のmeshの場合
+            obstacleRadius = Math.max(
+                obstacle.geometry.parameters.width || 1, 
+                obstacle.geometry.parameters.depth || obstacle.geometry.parameters.radiusTop || obstacle.geometry.parameters.radiusBottom || 1
+            ) / 2;
+        }
         
         if (distance < playerRadius + obstacleRadius) {
             return true; // 衝突している
