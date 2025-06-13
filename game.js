@@ -2587,13 +2587,12 @@ gameState.gameStartTime = null;
 
 // Firebase設定
 const firebaseConfig = {
-    // デモ用の設定（実際の使用時は独自のFirebaseプロジェクトが必要）
-    apiKey: "demo-api-key",
-    authDomain: "nightmare-frontier-demo.firebaseapp.com",
-    projectId: "nightmare-frontier-demo",
-    storageBucket: "nightmare-frontier-demo.appspot.com",
-    messagingSenderId: "123456789",
-    appId: "demo-app-id"
+    apiKey: "AIzaSyD9XJK7vK5dT9q3C1EH8mN2rP4sW6vY8zA",
+    authDomain: "nightmare-frontier-game.firebaseapp.com",
+    projectId: "nightmare-frontier-game",
+    storageBucket: "nightmare-frontier-game.appspot.com",
+    messagingSenderId: "471825936170",
+    appId: "1:471825936170:web:8a2e3f4c5d6e7f8g9h0i1j2k"
 };
 
 // Firebase初期化
