@@ -5,6 +5,8 @@ const gameState = {
     ammo: 30,
     maxAmmo: 30,
     isReloading: false,
+    reloadStartTime: 0,
+    reloadDuration: 2000,
     enemies: [],
     bullets: [],
     particleEffects: [],
@@ -1662,17 +1664,47 @@ function reload() {
     if (gameState.isReloading || gameState.ammo === gameState.maxAmmo) return;
     
     gameState.isReloading = true;
+    gameState.reloadStartTime = Date.now();
+    gameState.reloadDuration = 2000; // 2秒
     
     // リロード音再生
     if (soundGenerator) {
         soundGenerator.createReloadSound();
     }
     
+    // プログレスバーを表示
+    const progressContainer = document.getElementById('reloadProgressContainer');
+    const progressBar = document.getElementById('reloadProgressBar');
+    if (progressContainer) {
+        progressContainer.style.display = 'block';
+        progressBar.style.width = '0%';
+    }
+    
     setTimeout(() => {
         gameState.ammo = gameState.maxAmmo;
         gameState.isReloading = false;
+        
+        // プログレスバーを非表示
+        if (progressContainer) {
+            progressContainer.style.display = 'none';
+        }
+        
         updateUI();
-    }, 2000);
+    }, gameState.reloadDuration);
+}
+
+// リロードプログレスバーの更新
+function updateReloadProgress() {
+    if (!gameState.isReloading) return;
+    
+    const progressBar = document.getElementById('reloadProgressBar');
+    if (!progressBar) return;
+    
+    const currentTime = Date.now();
+    const elapsed = currentTime - gameState.reloadStartTime;
+    const progress = Math.min(elapsed / gameState.reloadDuration, 1) * 100;
+    
+    progressBar.style.width = `${progress}%`;
 }
 
 // 衝突検出
@@ -1680,6 +1712,7 @@ function checkCollisions() {
     // 弾丸と敵の衝突
     for (let i = gameState.bullets.length - 1; i >= 0; i--) {
         const bullet = gameState.bullets[i];
+        let bulletHit = false; // 弾が当たったかどうかのフラグ
         
         for (let j = gameState.enemies.length - 1; j >= 0; j--) {
             const enemy = gameState.enemies[j];
@@ -1715,10 +1748,18 @@ function checkCollisions() {
                     
                     updateUI();
                 }
+                
+                // 弾を削除して処理を終了
                 scene.remove(bullet.mesh);
                 gameState.bullets.splice(i, 1);
-                break;
+                bulletHit = true;
+                break; // 敵のループを抜ける
             }
+        }
+        
+        // 弾が当たった場合は次の弾の処理に移る
+        if (bulletHit) {
+            continue;
         }
     }
     
@@ -2626,6 +2667,9 @@ function animate() {
             gameState.particleEffects.splice(i, 1);
         }
     }
+    
+    // リロードプログレスバーの更新
+    updateReloadProgress();
     
     checkCollisions();
     
