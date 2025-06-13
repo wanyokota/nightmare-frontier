@@ -353,6 +353,117 @@
             0% { transform: translate(-50%, -100%) rotate(0deg); }
             100% { transform: translate(-50%, -100%) rotate(360deg); }
         }
+        
+        /* モバイルコントロール */
+        #mobileControls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: none;
+            z-index: 200;
+        }
+        
+        .mobile-button {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 3px solid rgba(255, 255, 255, 0.8);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 10px;
+            cursor: pointer;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            transition: all 0.1s;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+            font-family: Arial, sans-serif;
+        }
+        
+        .mobile-button:active {
+            transform: scale(0.95);
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.6);
+        }
+        
+        #shootButton {
+            background: rgba(255, 0, 0, 0.3);
+            border-color: #ff6666;
+            position: absolute;
+            bottom: 100px;
+            right: 0;
+        }
+        
+        #jumpButton {
+            background: rgba(0, 100, 255, 0.3);
+            border-color: #6666ff;
+            position: absolute;
+            bottom: 0;
+            right: 0;
+        }
+        
+        /* モバイル用UI調整 */
+        @media (max-width: 768px) and (orientation: portrait) {
+            #gameUI {
+                font-size: 14px;
+                padding: 10px 15px;
+                min-width: 150px;
+            }
+            #gameUI .ui-value {
+                font-size: 14px;
+            }
+            #gameUI .ui-label {
+                font-size: 12px;
+            }
+            #radar {
+                width: 100px;
+                height: 100px;
+                bottom: 10px;
+                left: 10px;
+            }
+            #crosshair {
+                width: 30px;
+                height: 30px;
+            }
+            #instructions {
+                display: none;
+            }
+        }
+        
+        /* タッチ移動エリア */
+        #touchMoveArea {
+            position: fixed;
+            left: 0;
+            bottom: 0;
+            width: 50%;
+            height: 30%;
+            z-index: 150;
+            display: none;
+        }
+        
+        #moveStick {
+            position: absolute;
+            width: 150px;
+            height: 150px;
+            bottom: 30px;
+            left: 30px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        #moveStickKnob {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.5);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: none;
+        }
     </style>
 </head>
 <body>
@@ -385,6 +496,19 @@
     </div>
     <div id="radar">
         <div class="radar-sweep"></div>
+    </div>
+    
+    <!-- モバイルコントロール -->
+    <div id="mobileControls">
+        <button id="shootButton" class="mobile-button">射撃</button>
+        <button id="jumpButton" class="mobile-button">ジャンプ</button>
+    </div>
+    
+    <!-- タッチ移動エリア -->
+    <div id="touchMoveArea">
+        <div id="moveStick">
+            <div id="moveStickKnob"></div>
+        </div>
     </div>
     <div id="startScreen">
         <div id="startContent">

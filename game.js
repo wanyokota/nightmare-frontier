@@ -507,6 +507,9 @@ const groundMaterial = new THREE.MeshLambertMaterial({
     color: 0x2a1f1a
 });
 
+// 地面の高さマップを保存する配列
+const groundHeightMap = [];
+
 // 地面に起伏を追加
 const positions = groundGeometry.attributes.position;
 for (let i = 0; i < positions.count; i++) {
@@ -514,14 +517,19 @@ for (let i = 0; i < positions.count; i++) {
     const y = positions.getY(i);
     const z = positions.getZ(i);
     
-    // 複数の波を組み合わせて自然な起伏を作成
+    // 複数の波を組み合わせて自然な起伏を作成（ランダムノイズを除去）
     const height = 
         Math.sin(x * 0.1) * 0.8 +
         Math.cos(y * 0.15) * 0.6 +
-        Math.sin(x * 0.05 + y * 0.08) * 1.2 +
-        Math.random() * 0.4 - 0.2; // ランダムなノイズを追加
+        Math.sin(x * 0.05 + y * 0.08) * 1.2;
     
     positions.setZ(i, height);
+    
+    // 高さマップに保存（後で高さ計算に使用）
+    if (!groundHeightMap[Math.floor(x + 50)]) {
+        groundHeightMap[Math.floor(x + 50)] = [];
+    }
+    groundHeightMap[Math.floor(x + 50)][Math.floor(y + 50)] = height;
 }
 positions.needsUpdate = true;
 groundGeometry.computeVertexNormals(); // 法線を再計算
@@ -531,52 +539,31 @@ ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 scene.add(ground);
 
-// 地面の高さを取得する関数
+// レイキャスターを作成
+const raycaster = new THREE.Raycaster();
+
+// 地面の高さを取得する関数（レイキャストベース）
 function getGroundHeight(x, z) {
-    // 地面のジオメトリから高さを計算
-    const groundSize = 100; // 地面のサイズ
-    const segments = 50; // セグメント数
+    // レイキャストで地面の高さを取得
+    const origin = new THREE.Vector3(x, 50, z); // 十分高い位置から
+    const direction = new THREE.Vector3(0, -1, 0); // 下向き
     
-    // ワールド座標をグリッド座標に変換
-    const gridX = (x + groundSize / 2) / groundSize * segments;
-    const gridZ = (z + groundSize / 2) / groundSize * segments;
+    raycaster.set(origin, direction);
+    const intersects = raycaster.intersectObject(ground);
     
-    // グリッドの境界チェック
-    if (gridX < 0 || gridX >= segments || gridZ < 0 || gridZ >= segments) {
-        return 0; // 境界外の場合は高さ0を返す
+    if (intersects.length > 0) {
+        return intersects[0].point.y;
     }
     
-    // 最寄りの4つの頂点のインデックスを計算
-    const x1 = Math.floor(gridX);
-    const x2 = Math.min(x1 + 1, segments - 1);
-    const z1 = Math.floor(gridZ);
-    const z2 = Math.min(z1 + 1, segments - 1);
+    // レイキャストが失敗した場合は計算式で求める
+    const groundSize = 100;
+    const worldX = x;
+    const worldZ = z;
     
-    // 地面の高さ計算式（地面生成時と同じ式を使用）
-    function calculateHeight(gx, gz) {
-        const worldX = (gx / segments - 0.5) * groundSize;
-        const worldZ = (gz / segments - 0.5) * groundSize;
-        
-        return Math.sin(worldX * 0.1) * 0.8 +
-               Math.cos(worldZ * 0.15) * 0.6 +
-               Math.sin(worldX * 0.05 + worldZ * 0.08) * 1.2;
-    }
-    
-    // 4つの頂点の高さを取得
-    const h1 = calculateHeight(x1, z1);
-    const h2 = calculateHeight(x2, z1);
-    const h3 = calculateHeight(x1, z2);
-    const h4 = calculateHeight(x2, z2);
-    
-    // バイリニア補間で正確な高さを計算
-    const fx = gridX - x1;
-    const fz = gridZ - z1;
-    
-    const h12 = h1 * (1 - fx) + h2 * fx;
-    const h34 = h3 * (1 - fx) + h4 * fx;
-    const finalHeight = h12 * (1 - fz) + h34 * fz;
-    
-    return finalHeight;
+    // 地面生成時と同じ式（ランダムノイズなし）
+    return Math.sin(worldX * 0.1) * 0.8 +
+           Math.cos(worldZ * 0.15) * 0.6 +
+           Math.sin(worldX * 0.05 + worldZ * 0.08) * 1.2;
 }
 
 // ホラー感のある空の作成
@@ -936,17 +923,18 @@ class Enemy {
         
         // 地面の高さを取得して適切な高さに配置
         const groundHeight = getGroundHeight(spawnX, spawnZ);
+        const groundOffset = 0.05; // 地面からの微小オフセット
         let spawnY;
         
         if (customEnemyModel) {
             // カスタムモデルの場合、後でバウンディングボックスで調整
-            spawnY = groundHeight + 1;
+            spawnY = groundHeight + 1 + groundOffset;
         } else if (enemyPhotoTexture) {
             // 写真敵の場合
-            spawnY = groundHeight + 1.25;
+            spawnY = groundHeight + 1.25 + groundOffset;
         } else {
             // デフォルト敵の場合
-            spawnY = groundHeight + 1;
+            spawnY = groundHeight + 1 + groundOffset;
         }
         
         this.mesh.position.set(spawnX, spawnY, spawnZ);
@@ -963,7 +951,7 @@ class Enemy {
         if (customEnemyModel) {
             const box = new THREE.Box3().setFromObject(this.mesh);
             const size = box.getSize(new THREE.Vector3());
-            this.mesh.position.y = groundHeight + size.y / 2;
+            this.mesh.position.y = groundHeight + size.y / 2 + groundOffset;
         }
     }
     
@@ -992,18 +980,19 @@ class Enemy {
         
         // 地面の高さに合わせて敵の位置を調整
         const groundHeight = getGroundHeight(this.mesh.position.x, this.mesh.position.z);
+        const groundOffset = 0.05; // 地面からの微小オフセット
         
         if (customEnemyModel) {
             // カスタムモデルの場合
             const box = new THREE.Box3().setFromObject(this.mesh);
             const size = box.getSize(new THREE.Vector3());
-            this.mesh.position.y = groundHeight + size.y / 2;
+            this.mesh.position.y = groundHeight + size.y / 2 + groundOffset;
         } else if (enemyPhotoTexture) {
             // 写真敵の場合
-            this.mesh.position.y = groundHeight + 1.25; // 平面の半分の高さ
+            this.mesh.position.y = groundHeight + 1.25 + groundOffset; // 平面の半分の高さ
         } else {
             // デフォルト敵の場合
-            this.mesh.position.y = groundHeight + 1; // 敵の中心が地面の高さ + 1
+            this.mesh.position.y = groundHeight + 1 + groundOffset; // 敵の中心が地面の高さ + 1
         }
         
         // プレイヤーの方を向く
@@ -1183,8 +1172,142 @@ const pointerLockControls = {
     }
 };
 
+// モバイル検出
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+// タッチコントロール用の変数
+let touchStartX = 0;
+let touchStartY = 0;
+let isTouchMoving = false;
+
+// モバイルコントロールの初期化
+function initMobileControls() {
+    if (!isMobile) return;
+    
+    // モバイルボタンを表示
+    document.getElementById('mobileControls').style.display = 'block';
+    document.getElementById('touchMoveArea').style.display = 'block';
+    
+    // 射撃ボタン
+    const shootButton = document.getElementById('shootButton');
+    shootButton.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        shoot();
+    });
+    
+    // ジャンプボタン
+    const jumpButton = document.getElementById('jumpButton');
+    jumpButton.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (!gameState.isJumping) {
+            controls.jump = true;
+            gameState.isJumping = true;
+            gameState.jumpVelocity = 0.45;
+            if (soundGenerator) {
+                soundGenerator.createJumpSound();
+            }
+        }
+    });
+    
+    // タッチ移動コントロール
+    initTouchMoveControls();
+}
+
+// タッチ移動コントロール
+function initTouchMoveControls() {
+    const moveStick = document.getElementById('moveStick');
+    const moveStickKnob = document.getElementById('moveStickKnob');
+    const stickRadius = 75;
+    let stickActive = false;
+    
+    moveStick.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        stickActive = true;
+        const touch = e.touches[0];
+        const rect = moveStick.getBoundingClientRect();
+        updateStickPosition(touch.clientX - rect.left - stickRadius, touch.clientY - rect.top - stickRadius);
+    });
+    
+    moveStick.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        if (!stickActive) return;
+        const touch = e.touches[0];
+        const rect = moveStick.getBoundingClientRect();
+        updateStickPosition(touch.clientX - rect.left - stickRadius, touch.clientY - rect.top - stickRadius);
+    });
+    
+    moveStick.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        stickActive = false;
+        moveStickKnob.style.transform = 'translate(-50%, -50%)';
+        controls.moveForward = false;
+        controls.moveBackward = false;
+        controls.moveLeft = false;
+        controls.moveRight = false;
+    });
+    
+    function updateStickPosition(x, y) {
+        const distance = Math.sqrt(x * x + y * y);
+        const maxDistance = stickRadius - 30;
+        
+        if (distance > maxDistance) {
+            x = (x / distance) * maxDistance;
+            y = (y / distance) * maxDistance;
+        }
+        
+        moveStickKnob.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+        
+        // 移動方向を設定
+        const threshold = 20;
+        controls.moveForward = y < -threshold;
+        controls.moveBackward = y > threshold;
+        controls.moveLeft = x < -threshold;
+        controls.moveRight = x > threshold;
+    }
+}
+
+// タッチで視点移動
+function initTouchCameraControls() {
+    let touchX = null;
+    let touchY = null;
+    
+    renderer.domElement.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+            touchX = e.touches[0].pageX;
+            touchY = e.touches[0].pageY;
+            isTouchMoving = true;
+        }
+    });
+    
+    renderer.domElement.addEventListener('touchmove', (e) => {
+        if (!isTouchMoving || !gameState.isPlaying || e.touches.length !== 1) return;
+        
+        e.preventDefault();
+        
+        const deltaX = e.touches[0].pageX - touchX;
+        const deltaY = e.touches[0].pageY - touchY;
+        
+        touchX = e.touches[0].pageX;
+        touchY = e.touches[0].pageY;
+        
+        // カメラ回転（スワイプで視点移動）
+        euler.setFromQuaternion(camera.quaternion);
+        euler.y -= deltaX * 0.005;
+        euler.x -= deltaY * 0.005;
+        euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, euler.x));
+        camera.quaternion.setFromEuler(euler);
+    });
+    
+    renderer.domElement.addEventListener('touchend', () => {
+        isTouchMoving = false;
+    });
+}
+
 // イベントリスナー
 document.addEventListener('click', (event) => {
+    // モバイルの場合はポインターロックを使わない
+    if (isMobile) return;
+    
     // UIクリックは無視
     if (event.target.tagName === 'BUTTON' || event.target.tagName === 'INPUT' || 
         event.target.tagName === 'LABEL' || event.target.closest('#startScreen') ||
@@ -1204,7 +1327,13 @@ document.addEventListener('click', (event) => {
 
 document.addEventListener('pointerlockchange', () => {
     pointerLockControls.isLocked = !!document.pointerLockElement;
-    gameState.isPlaying = pointerLockControls.isLocked;
+    
+    // モバイルの場合は常にプレイ可能
+    if (isMobile) {
+        gameState.isPlaying = gameState.isStarted;
+    } else {
+        gameState.isPlaying = pointerLockControls.isLocked;
+    }
     
     if (gameState.isPlaying) {
         document.getElementById('instructions').style.display = 'none';
@@ -1552,8 +1681,9 @@ function updatePlayer() {
     
     // 地面の高さを取得
     const groundHeight = getGroundHeight(camera.position.x, camera.position.z);
-    const playerHeightAboveGround = 1.6; // プレイヤーの高さ
-    const minPlayerY = groundHeight + playerHeightAboveGround;
+    const playerHeightAboveGround = 1.6; // プレイヤーの目の高さ
+    const groundOffset = 0.1; // 地面からの微小オフセット（めり込み防止）
+    const minPlayerY = groundHeight + playerHeightAboveGround + groundOffset;
     
     // ジャンプの処理
     if (gameState.isJumping) {
@@ -1660,7 +1790,8 @@ function restartGame() {
     
     // プレイヤー位置をリセット（地面の高さに合わせる）
     const initialGroundHeight = getGroundHeight(0, 0);
-    gameState.playerY = initialGroundHeight + 1.6;
+    const groundOffset = 0.1; // 地面からの微小オフセット
+    gameState.playerY = initialGroundHeight + 1.6 + groundOffset;
     camera.position.set(0, gameState.playerY, 0);
     camera.rotation.set(0, 0, 0);
     
@@ -1836,6 +1967,13 @@ async function startGame() {
     gameState.isStarted = true;
     gameState.gameStartTime = Date.now(); // ゲーム開始時間を記録
     
+    // モバイルの場合は即座にプレイ可能に
+    if (isMobile) {
+        gameState.isPlaying = true;
+        initMobileControls();
+        initTouchCameraControls();
+    }
+    
     // ゲーム中の音楽と環境音を開始
     if (backgroundMusic) {
         backgroundMusic.playGameMusic();
@@ -1844,11 +1982,19 @@ async function startGame() {
         ambientSounds.startAmbient();
     }
     
-    // 操作説明を表示
-    document.getElementById('instructions').style.display = 'block';
+    // 操作説明を表示（PCのみ）
+    if (!isMobile) {
+        document.getElementById('instructions').style.display = 'block';
+    }
     
     // レーダーを表示
     document.getElementById('radar').style.display = 'block';
+    
+    // モバイルコントロールを表示
+    if (isMobile) {
+        document.getElementById('mobileControls').style.display = 'block';
+        document.getElementById('touchMoveArea').style.display = 'block';
+    }
     
     // 初期敵を配置
     for (let i = 0; i < gameState.maxEnemies; i++) {
@@ -1873,7 +2019,8 @@ function init() {
     
     // プレイヤーの初期位置を地面の高さに合わせて設定
     const initialGroundHeight = getGroundHeight(0, 0);
-    gameState.playerY = initialGroundHeight + 1.6;
+    const groundOffset = 0.1; // 地面からの微小オフセット
+    gameState.playerY = initialGroundHeight + 1.6 + groundOffset;
     camera.position.set(0, gameState.playerY, 0);
     
     // 敵の配置はゲーム開始時に行うように変更
