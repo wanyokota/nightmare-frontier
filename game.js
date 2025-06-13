@@ -1374,70 +1374,110 @@ function initMobileControls() {
     initTouchMoveControls();
 }
 
-// タッチ移動コントロール（マルチタッチ対応）
+// タッチ移動コントロール（マルチタッチ対応・改善版）
 function initTouchMoveControls() {
     const moveStick = document.getElementById('moveStick');
     const moveStickKnob = document.getElementById('moveStickKnob');
+    const touchMoveArea = document.getElementById('touchMoveArea');
     const stickRadius = 75;
     let stickTouchId = null; // 移動スティック専用のタッチID
+    let lastValidPosition = { x: 0, y: 0 }; // 最後の有効な位置を記録
     
-    moveStick.addEventListener('touchstart', (e) => {
+    // リセット関数
+    const resetStick = () => {
+        stickTouchId = null;
+        lastValidPosition = { x: 0, y: 0 };
+        moveStickKnob.style.transform = 'translate(-50%, -50%)';
+        controls.moveForward = false;
+        controls.moveBackward = false;
+        controls.moveLeft = false;
+        controls.moveRight = false;
+    };
+    
+    // タッチ開始
+    const handleTouchStart = (e) => {
         e.preventDefault();
         
+        // 既にアクティブなタッチがある場合は無視
+        if (stickTouchId !== null) return;
+        
         // 最初のタッチを移動用として使用
-        if (stickTouchId === null && e.touches.length > 0) {
-            stickTouchId = e.touches[0].identifier;
-            const touch = e.touches[0];
+        for (let touch of e.changedTouches) {
             const rect = moveStick.getBoundingClientRect();
-            updateStickPosition(touch.clientX - rect.left - stickRadius, touch.clientY - rect.top - stickRadius);
+            const x = touch.clientX - rect.left - stickRadius;
+            const y = touch.clientY - rect.top - stickRadius;
+            
+            // スティック範囲内のタッチのみ受け付ける
+            const distance = Math.sqrt(x * x + y * y);
+            if (distance <= stickRadius) {
+                stickTouchId = touch.identifier;
+                updateStickPosition(x, y);
+                break;
+            }
         }
-    });
+    };
     
-    moveStick.addEventListener('touchmove', (e) => {
+    // タッチ移動
+    const handleTouchMove = (e) => {
         e.preventDefault();
         if (stickTouchId === null) return;
         
+        let touchFound = false;
         // 移動用タッチのみを処理
         for (let touch of e.touches) {
             if (touch.identifier === stickTouchId) {
                 const rect = moveStick.getBoundingClientRect();
-                updateStickPosition(touch.clientX - rect.left - stickRadius, touch.clientY - rect.top - stickRadius);
+                const x = touch.clientX - rect.left - stickRadius;
+                const y = touch.clientY - rect.top - stickRadius;
+                updateStickPosition(x, y);
+                touchFound = true;
                 break;
             }
         }
-    });
+        
+        // タッチが見つからない場合はリセット
+        if (!touchFound) {
+            resetStick();
+        }
+    };
     
-    moveStick.addEventListener('touchend', (e) => {
+    // タッチ終了
+    const handleTouchEnd = (e) => {
         e.preventDefault();
         
         // 移動用タッチが終了した場合のみリセット
         for (let touch of e.changedTouches) {
             if (touch.identifier === stickTouchId) {
-                stickTouchId = null;
-                moveStickKnob.style.transform = 'translate(-50%, -50%)';
-                controls.moveForward = false;
-                controls.moveBackward = false;
-                controls.moveLeft = false;
-                controls.moveRight = false;
+                resetStick();
                 break;
             }
         }
-    });
+    };
     
-    // タッチキャンセル対応
-    moveStick.addEventListener('touchcancel', (e) => {
+    // タッチキャンセル
+    const handleTouchCancel = (e) => {
+        e.preventDefault();
+        
+        // 移動用タッチがキャンセルされた場合
         for (let touch of e.changedTouches) {
             if (touch.identifier === stickTouchId) {
-                stickTouchId = null;
-                moveStickKnob.style.transform = 'translate(-50%, -50%)';
-                controls.moveForward = false;
-                controls.moveBackward = false;
-                controls.moveLeft = false;
-                controls.moveRight = false;
+                resetStick();
                 break;
             }
         }
-    });
+    };
+    
+    // イベントリスナーの追加（タッチエリア全体に適用）
+    touchMoveArea.addEventListener('touchstart', handleTouchStart, { passive: false });
+    touchMoveArea.addEventListener('touchmove', handleTouchMove, { passive: false });
+    touchMoveArea.addEventListener('touchend', handleTouchEnd, { passive: false });
+    touchMoveArea.addEventListener('touchcancel', handleTouchCancel, { passive: false });
+    
+    // スティック自体にもリスナーを追加（互換性のため）
+    moveStick.addEventListener('touchstart', handleTouchStart, { passive: false });
+    moveStick.addEventListener('touchmove', handleTouchMove, { passive: false });
+    moveStick.addEventListener('touchend', handleTouchEnd, { passive: false });
+    moveStick.addEventListener('touchcancel', handleTouchCancel, { passive: false });
     
     function updateStickPosition(x, y) {
         const distance = Math.sqrt(x * x + y * y);
@@ -1448,107 +1488,169 @@ function initTouchMoveControls() {
             y = (y / distance) * maxDistance;
         }
         
+        // 位置を記録
+        lastValidPosition = { x, y };
+        
+        // スティックノブの位置を更新
         moveStickKnob.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
         
-        // 移動方向を設定
-        const threshold = 20;
-        controls.moveForward = y < -threshold;
-        controls.moveBackward = y > threshold;
-        controls.moveLeft = x < -threshold;
-        controls.moveRight = x > threshold;
+        // 移動方向を設定（より精密な制御）
+        const threshold = 15; // 閾値を少し下げて反応を良くする
+        const deadZone = 5; // デッドゾーンを追加
+        
+        // デッドゾーン内は移動なし
+        if (distance < deadZone) {
+            controls.moveForward = false;
+            controls.moveBackward = false;
+            controls.moveLeft = false;
+            controls.moveRight = false;
+        } else {
+            // より細かい方向制御
+            controls.moveForward = y < -threshold;
+            controls.moveBackward = y > threshold;
+            controls.moveLeft = x < -threshold;
+            controls.moveRight = x > threshold;
+        }
+    }
+    
+    // 定期的な状態チェック（スタック防止）
+    setInterval(() => {
+        // スティックがアクティブでタッチがない場合はリセット
+        if (stickTouchId !== null && !isTouchActive(stickTouchId)) {
+            resetStick();
+        }
+    }, 100);
+    
+    // タッチが現在アクティブかチェック
+    function isTouchActive(touchId) {
+        const touches = document.getElementsByTagName('body')[0].touches || [];
+        for (let touch of touches) {
+            if (touch.identifier === touchId) {
+                return true;
+            }
+        }
+        return false;
     }
 }
 
-// マルチタッチで視点移動
+// マルチタッチで視点移動（改善版）
 function initTouchCameraControls() {
     let activeTouches = new Map(); // タッチIDと座標を管理
     let cameraTouch = null; // 視点移動用のタッチ
+    let sensitivity = 0.005; // タッチ感度
+    
+    // タッチ情報をクリア
+    const clearTouch = (touchId) => {
+        activeTouches.delete(touchId);
+        if (touchId === cameraTouch) {
+            cameraTouch = null;
+            // 他の有効なタッチを探す
+            for (let [id, touchInfo] of activeTouches) {
+                if (touchInfo.x > window.innerWidth / 2) {
+                    cameraTouch = id;
+                    break;
+                }
+            }
+        }
+    };
     
     renderer.domElement.addEventListener('touchstart', (e) => {
+        if (!gameState.isPlaying) return;
         e.preventDefault();
         
         // 新しいタッチを追加
         for (let touch of e.changedTouches) {
+            // UI要素のタッチは除外
+            const element = document.elementFromPoint(touch.clientX, touch.clientY);
+            if (element && (element.classList.contains('mobile-button') || 
+                          element.id === 'moveStick' || 
+                          element.id === 'moveStickKnob')) {
+                continue;
+            }
+            
             const touchInfo = {
                 id: touch.identifier,
                 x: touch.pageX,
                 y: touch.pageY,
                 startX: touch.pageX,
-                startY: touch.pageY
+                startY: touch.pageY,
+                lastX: touch.pageX,
+                lastY: touch.pageY,
+                timestamp: Date.now()
             };
             activeTouches.set(touch.identifier, touchInfo);
-        }
-        
-        // 視点移動用のタッチを決定（右側の画面をタッチした場合）
-        if (!cameraTouch) {
-            for (let touch of e.changedTouches) {
-                if (touch.pageX > window.innerWidth / 2) {
-                    cameraTouch = touch.identifier;
-                    break;
-                }
+            
+            // 視点移動用のタッチを決定（右側の画面をタッチした場合）
+            if (cameraTouch === null && touch.pageX > window.innerWidth / 2) {
+                cameraTouch = touch.identifier;
             }
         }
     });
     
     renderer.domElement.addEventListener('touchmove', (e) => {
         if (!gameState.isPlaying) return;
-        
         e.preventDefault();
         
         // タッチ情報を更新
         for (let touch of e.changedTouches) {
             if (activeTouches.has(touch.identifier)) {
                 const touchInfo = activeTouches.get(touch.identifier);
-                const deltaX = touch.pageX - touchInfo.x;
-                const deltaY = touch.pageY - touchInfo.y;
+                
+                // 前回の位置からの差分を計算（よりスムーズな動き）
+                const deltaX = touch.pageX - touchInfo.lastX;
+                const deltaY = touch.pageY - touchInfo.lastY;
                 
                 // 視点移動（右側のタッチ）
                 if (touch.identifier === cameraTouch) {
-                    euler.setFromQuaternion(camera.quaternion);
-                    euler.y -= deltaX * 0.005;
-                    euler.x -= deltaY * 0.005;
-                    euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, euler.x));
-                    camera.quaternion.setFromEuler(euler);
+                    // 移動が小さすぎる場合は無視（ジッター防止）
+                    if (Math.abs(deltaX) > 0.5 || Math.abs(deltaY) > 0.5) {
+                        euler.setFromQuaternion(camera.quaternion);
+                        euler.y -= deltaX * sensitivity;
+                        euler.x -= deltaY * sensitivity;
+                        euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, euler.x));
+                        camera.quaternion.setFromEuler(euler);
+                    }
                 }
                 
                 // 座標を更新
+                touchInfo.lastX = touch.pageX;
+                touchInfo.lastY = touch.pageY;
                 touchInfo.x = touch.pageX;
                 touchInfo.y = touch.pageY;
+                touchInfo.timestamp = Date.now();
             }
         }
     });
     
     renderer.domElement.addEventListener('touchend', (e) => {
+        if (!gameState.isPlaying) return;
         e.preventDefault();
         
         // 終了したタッチを削除
         for (let touch of e.changedTouches) {
-            activeTouches.delete(touch.identifier);
-            
-            // 視点移動用タッチが終了した場合
-            if (touch.identifier === cameraTouch) {
-                cameraTouch = null;
-                
-                // 他のタッチがあれば視点移動を引き継ぐ
-                for (let [id, touchInfo] of activeTouches) {
-                    if (touchInfo.x > window.innerWidth / 2) {
-                        cameraTouch = id;
-                        break;
-                    }
-                }
-            }
+            clearTouch(touch.identifier);
         }
     });
     
     // タッチキャンセル時の処理
     renderer.domElement.addEventListener('touchcancel', (e) => {
+        e.preventDefault();
         for (let touch of e.changedTouches) {
-            activeTouches.delete(touch.identifier);
-            if (touch.identifier === cameraTouch) {
-                cameraTouch = null;
-            }
+            clearTouch(touch.identifier);
         }
     });
+    
+    // 定期的にタッチ状態をチェック（スタック防止）
+    setInterval(() => {
+        const now = Date.now();
+        const timeout = 500; // 500ms以上更新がないタッチは削除
+        
+        for (let [id, touchInfo] of activeTouches) {
+            if (now - touchInfo.timestamp > timeout) {
+                clearTouch(id);
+            }
+        }
+    }, 100);
 }
 
 // イベントリスナー
