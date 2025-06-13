@@ -463,7 +463,7 @@ let ambientSounds = null;
 
 // Three.jsシーンの設定
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x2c1810, 20, 80); // ホラー感のある霧
+scene.fog = new THREE.Fog(0x4a4a4a, 30, 100); // より明るい霧
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 // カメラの初期位置は後で地面の高さに合わせて設定
@@ -474,12 +474,12 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
-// ホラー感のあるライティング
-const ambientLight = new THREE.AmbientLight(0x404040, 0.3); // 暗い環境光
+// 明るめのホラー感ライティング
+const ambientLight = new THREE.AmbientLight(0x606060, 0.6); // より明るい環境光
 scene.add(ambientLight);
 
-const directionalLight = new THREE.DirectionalLight(0x8080ff, 0.5); // 青白い光
-directionalLight.position.set(-10, 15, -5);
+const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8); // 白い光でより明るく
+directionalLight.position.set(-10, 20, -5);
 directionalLight.castShadow = true;
 directionalLight.shadow.camera.left = -50;
 directionalLight.shadow.camera.right = 50;
@@ -487,24 +487,29 @@ directionalLight.shadow.camera.top = 50;
 directionalLight.shadow.camera.bottom = -50;
 scene.add(directionalLight);
 
-// 点滅する赤い光（ホラー演出）
-const redLight = new THREE.PointLight(0xff0000, 1, 30);
+// 暖色系の補助光（雰囲気作り）
+const warmLight = new THREE.PointLight(0xffaa44, 0.4, 40);
+warmLight.position.set(15, 8, 10);
+scene.add(warmLight);
+
+// 点滅する赤い光（ホラー演出・控えめ）
+const redLight = new THREE.PointLight(0xff0000, 0.3, 25);
 redLight.position.set(0, 10, 0);
 scene.add(redLight);
 
-// 赤い光の点滅アニメーション
+// 赤い光の点滅アニメーション（控えめ）
 let redLightIntensity = 0;
 setInterval(() => {
-    redLightIntensity = Math.random() * 0.8 + 0.2;
+    redLightIntensity = Math.random() * 0.4 + 0.1;
     redLight.intensity = redLightIntensity;
-}, 200);
+}, 300);
 
 // ホラー感のある地面の作成（起伏あり）
 const groundGeometry = new THREE.PlaneGeometry(100, 100, 50, 50);
 const groundTexture = createGroundTexture();
 const groundMaterial = new THREE.MeshLambertMaterial({ 
     map: groundTexture,
-    color: 0x2a1f1a
+    color: 0x5a4a3a // より明るい茶色
 });
 
 // 地面の高さマップを保存する配列
@@ -583,21 +588,21 @@ function createGroundTexture() {
     canvas.height = 512;
     const ctx = canvas.getContext('2d');
     
-    // 暗い土のベース
-    ctx.fillStyle = '#1a0f0a';
+    // 明るい土のベース
+    ctx.fillStyle = '#4a3a2a';
     ctx.fillRect(0, 0, 512, 512);
     
-    // ランダムなノイズを追加
-    for (let i = 0; i < 10000; i++) {
-        ctx.fillStyle = `rgba(${Math.random() * 100 + 50}, ${Math.random() * 50 + 20}, ${Math.random() * 30 + 10}, 0.3)`;
+    // 草の模様を追加
+    for (let i = 0; i < 8000; i++) {
+        ctx.fillStyle = `rgba(${Math.random() * 80 + 80}, ${Math.random() * 100 + 100}, ${Math.random() * 60 + 40}, 0.4)`;
         ctx.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
     }
     
-    // 血痕のような汚れを追加
-    for (let i = 0; i < 20; i++) {
-        ctx.fillStyle = `rgba(${Math.random() * 50 + 80}, ${Math.random() * 20 + 10}, ${Math.random() * 20 + 10}, 0.6)`;
+    // 石や小さな岩を追加
+    for (let i = 0; i < 15; i++) {
+        ctx.fillStyle = `rgba(${Math.random() * 50 + 100}, ${Math.random() * 50 + 100}, ${Math.random() * 50 + 100}, 0.5)`;
         ctx.beginPath();
-        ctx.arc(Math.random() * 512, Math.random() * 512, Math.random() * 20 + 5, 0, Math.PI * 2);
+        ctx.arc(Math.random() * 512, Math.random() * 512, Math.random() * 15 + 3, 0, Math.PI * 2);
         ctx.fill();
     }
     
@@ -640,17 +645,9 @@ let customModel = null;
 let customEnemyModel = null;
 let enemyPhotoTexture = null;
 
-// ホラー感のある障害物を作成
+// 雰囲気のある建物障害物を作成
 function createObstacles() {
-    // 墓石風の障害物
-    const tombstoneGeometry = new THREE.BoxGeometry(1.5, 2.5, 0.5);
-    const tombstoneMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 });
-    
-    // 木風の障害物
-    const treeGeometry = new THREE.CylinderGeometry(0.5, 0.8, 4, 8);
-    const treeMaterial = new THREE.MeshLambertMaterial({ color: 0x2a1a0f });
-    
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 12; i++) {
         let obstacle;
         
         if (customModel) {
@@ -661,15 +658,12 @@ function createObstacles() {
             const box = new THREE.Box3().setFromObject(obstacle);
             const size = box.getSize(new THREE.Vector3());
             const maxDim = Math.max(size.x, size.y, size.z);
-            const scale = 3 / maxDim; // 高さ約3に正規化
+            const scale = 4 / maxDim; // 高さ約4に正規化
             obstacle.scale.multiplyScalar(scale);
         } else {
-            // ランダムに墓石か木を選択
-            if (Math.random() > 0.5) {
-                obstacle = new THREE.Mesh(tombstoneGeometry, tombstoneMaterial);
-            } else {
-                obstacle = new THREE.Mesh(treeGeometry, treeMaterial);
-            }
+            // ランダムに家・小屋・タワーを選択
+            const buildingType = Math.floor(Math.random() * 4);
+            obstacle = createBuilding(buildingType);
         }
         
         obstacle.position.set(
@@ -684,8 +678,9 @@ function createObstacles() {
             const size = box.getSize(new THREE.Vector3());
             obstacle.position.y = size.y / 2;
         } else {
-            obstacle.position.y = obstacle.geometry.parameters ? 
-                obstacle.geometry.parameters.height / 2 : 1.25;
+            const box = new THREE.Box3().setFromObject(obstacle);
+            const size = box.getSize(new THREE.Vector3());
+            obstacle.position.y = size.y / 2;
         }
         
         obstacle.castShadow = true;
@@ -698,28 +693,186 @@ function createObstacles() {
     createRuins();
 }
 
-// 廃墟を作成
-function createRuins() {
-    const ruinMaterial = new THREE.MeshLambertMaterial({ color: 0x4a3a2a });
+// 建物オブジェクト作成
+function createBuilding(type) {
+    const group = new THREE.Group();
     
-    // 壊れた壁
-    for (let i = 0; i < 5; i++) {
+    switch (type) {
+        case 0: // 小さな家
+            return createSmallHouse();
+        case 1: // 大きな家  
+            return createLargeHouse();
+        case 2: // 塔
+            return createTower();
+        case 3: // 小屋
+            return createShed();
+        default:
+            return createSmallHouse();
+    }
+}
+
+// 小さな家
+function createSmallHouse() {
+    const group = new THREE.Group();
+    
+    // 基礎部分
+    const baseGeometry = new THREE.BoxGeometry(3, 2.5, 3);
+    const baseMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 }); // 茶色
+    const base = new THREE.Mesh(baseGeometry, baseMaterial);
+    group.add(base);
+    
+    // 屋根
+    const roofGeometry = new THREE.ConeGeometry(2.2, 1.5, 4);
+    const roofMaterial = new THREE.MeshLambertMaterial({ color: 0x654321 }); // 濃い茶色
+    const roof = new THREE.Mesh(roofGeometry, roofMaterial);
+    roof.position.y = 2;
+    roof.rotation.y = Math.PI / 4;
+    group.add(roof);
+    
+    // ドア
+    const doorGeometry = new THREE.BoxGeometry(0.8, 1.8, 0.1);
+    const doorMaterial = new THREE.MeshLambertMaterial({ color: 0x4a2c17 });
+    const door = new THREE.Mesh(doorGeometry, doorMaterial);
+    door.position.set(0, -0.35, 1.51);
+    group.add(door);
+    
+    // 窓
+    const windowGeometry = new THREE.BoxGeometry(0.6, 0.6, 0.1);
+    const windowMaterial = new THREE.MeshLambertMaterial({ color: 0x87CEEB }); // 水色
+    const window1 = new THREE.Mesh(windowGeometry, windowMaterial);
+    window1.position.set(-0.8, 0.5, 1.51);
+    const window2 = new THREE.Mesh(windowGeometry, windowMaterial);
+    window2.position.set(0.8, 0.5, 1.51);
+    group.add(window1);
+    group.add(window2);
+    
+    return group;
+}
+
+// 大きな家
+function createLargeHouse() {
+    const group = new THREE.Group();
+    
+    // メイン構造
+    const mainGeometry = new THREE.BoxGeometry(5, 3, 4);
+    const mainMaterial = new THREE.MeshLambertMaterial({ color: 0xA0522D }); // より明るい茶色
+    const main = new THREE.Mesh(mainGeometry, mainMaterial);
+    group.add(main);
+    
+    // 屋根
+    const roofGeometry = new THREE.BoxGeometry(5.5, 0.3, 4.5);
+    const roofMaterial = new THREE.MeshLambertMaterial({ color: 0x8B0000 }); // 暗い赤
+    const roof = new THREE.Mesh(roofGeometry, roofMaterial);
+    roof.position.y = 1.65;
+    group.add(roof);
+    
+    // 煙突
+    const chimneyGeometry = new THREE.BoxGeometry(0.4, 1, 0.4);
+    const chimneyMaterial = new THREE.MeshLambertMaterial({ color: 0x696969 });
+    const chimney = new THREE.Mesh(chimneyGeometry, chimneyMaterial);
+    chimney.position.set(1.5, 2.15, 1);
+    group.add(chimney);
+    
+    return group;
+}
+
+// 塔
+function createTower() {
+    const group = new THREE.Group();
+    
+    // メインタワー
+    const towerGeometry = new THREE.CylinderGeometry(1.2, 1.5, 5, 8);
+    const towerMaterial = new THREE.MeshLambertMaterial({ color: 0x708090 }); // スレートグレー
+    const tower = new THREE.Mesh(towerGeometry, towerMaterial);
+    group.add(tower);
+    
+    // 屋根（円錐）
+    const roofGeometry = new THREE.ConeGeometry(1.5, 1.2, 8);
+    const roofMaterial = new THREE.MeshLambertMaterial({ color: 0x2F4F4F }); // 暗いスレートグレー
+    const roof = new THREE.Mesh(roofGeometry, roofMaterial);
+    roof.position.y = 3.1;
+    group.add(roof);
+    
+    // 窓（複数階）
+    for (let i = 0; i < 3; i++) {
+        const windowGeometry = new THREE.BoxGeometry(0.3, 0.4, 0.1);
+        const windowMaterial = new THREE.MeshLambertMaterial({ color: 0xFFD700 }); // 金色（灯り）
+        const window = new THREE.Mesh(windowGeometry, windowMaterial);
+        window.position.set(1.3, -1 + i * 1.5, 0);
+        group.add(window);
+    }
+    
+    return group;
+}
+
+// 小屋
+function createShed() {
+    const group = new THREE.Group();
+    
+    // 基礎
+    const baseGeometry = new THREE.BoxGeometry(2, 2, 2.5);
+    const baseMaterial = new THREE.MeshLambertMaterial({ color: 0xDEB887 }); // バーライウッド
+    const base = new THREE.Mesh(baseGeometry, baseMaterial);
+    group.add(base);
+    
+    // 傾斜屋根
+    const roofGeometry = new THREE.BoxGeometry(2.2, 0.2, 2.7);
+    const roofMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+    const roof1 = new THREE.Mesh(roofGeometry, roofMaterial);
+    roof1.position.y = 1.3;
+    roof1.rotation.x = -0.3;
+    group.add(roof1);
+    
+    const roof2 = new THREE.Mesh(roofGeometry, roofMaterial);
+    roof2.position.y = 1.3;
+    roof2.rotation.x = 0.3;
+    group.add(roof2);
+    
+    return group;
+}
+    
+    // 古い建物の廃墟を追加
+    createRuins();
+}
+
+// 古い建物の廃墟を作成
+function createRuins() {
+    const ruinMaterial = new THREE.MeshLambertMaterial({ color: 0x8B7355 }); // より明るい石色
+    
+    // 壊れた壁（古い建物の残骸）
+    for (let i = 0; i < 4; i++) {
         const wallGeometry = new THREE.BoxGeometry(
-            Math.random() * 3 + 2, 
             Math.random() * 2 + 2, 
-            0.5
+            Math.random() * 1.5 + 1.5, 
+            0.4
         );
         const wall = new THREE.Mesh(wallGeometry, ruinMaterial);
         wall.position.set(
-            (Math.random() - 0.5) * 50,
+            (Math.random() - 0.5) * 45,
             wall.geometry.parameters.height / 2,
-            (Math.random() - 0.5) * 50
+            (Math.random() - 0.5) * 45
         );
         wall.rotation.y = Math.random() * Math.PI;
         wall.castShadow = true;
         wall.receiveShadow = true;
         obstacles.push(wall);
         scene.add(wall);
+    }
+    
+    // 古い石柱
+    for (let i = 0; i < 3; i++) {
+        const pillarGeometry = new THREE.CylinderGeometry(0.3, 0.4, 3, 8);
+        const pillarMaterial = new THREE.MeshLambertMaterial({ color: 0xA0A0A0 }); // 明るいグレー
+        const pillar = new THREE.Mesh(pillarGeometry, pillarMaterial);
+        pillar.position.set(
+            (Math.random() - 0.5) * 40,
+            1.5,
+            (Math.random() - 0.5) * 40
+        );
+        pillar.castShadow = true;
+        pillar.receiveShadow = true;
+        obstacles.push(pillar);
+        scene.add(pillar);
     }
 }
 
