@@ -2180,6 +2180,88 @@ function loadStartEnemyModel() {
     });
 }
 
+// MediaPipe Selfie Segmentation instance
+let selfieSegmentation = null;
+
+// MediaPipe初期化
+async function initMediaPipe() {
+    if (typeof SelfieSegmentation === 'undefined') {
+        console.log('MediaPipe not available, using original image');
+        return false;
+    }
+    
+    try {
+        selfieSegmentation = new SelfieSegmentation({
+            locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`;
+            }
+        });
+        
+        selfieSegmentation.setOptions({
+            modelSelection: 1, // 0: general, 1: landscape (better quality)
+            selfieMode: false,
+        });
+        
+        return true;
+    } catch (error) {
+        console.log('MediaPipe initialization failed:', error);
+        return false;
+    }
+}
+
+// 人型を認識して輪郭抽出
+async function extractHumanSilhouette(imageElement) {
+    if (!selfieSegmentation) {
+        console.log('MediaPipe not initialized, using original image');
+        return imageElement;
+    }
+    
+    return new Promise((resolve) => {
+        // キャンバスを作成
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = imageElement.width;
+        canvas.height = imageElement.height;
+        
+        // セグメンテーション結果を処理
+        selfieSegmentation.onResults((results) => {
+            // 元の画像を描画
+            ctx.drawImage(imageElement, 0, 0);
+            
+            // セグメンテーションマスクがある場合は適用
+            if (results.segmentationMask) {
+                // マスクを使って背景を透明にする
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+                const maskCanvas = document.createElement('canvas');
+                const maskCtx = maskCanvas.getContext('2d');
+                maskCanvas.width = canvas.width;
+                maskCanvas.height = canvas.height;
+                maskCtx.drawImage(results.segmentationMask, 0, 0);
+                const maskData = maskCtx.getImageData(0, 0, canvas.width, canvas.height).data;
+                
+                // 人物部分のみを残し、背景を透明にする
+                for (let i = 0; i < data.length; i += 4) {
+                    const maskValue = maskData[i]; // R値を使用（グレースケール）
+                    if (maskValue < 128) { // 閾値：128未満は背景
+                        data[i + 3] = 0; // アルファを0（透明）にする
+                    }
+                }
+                
+                ctx.putImageData(imageData, 0, 0);
+            }
+            
+            // 新しい画像要素を作成
+            const processedImg = new Image();
+            processedImg.onload = () => resolve(processedImg);
+            processedImg.src = canvas.toDataURL('image/png');
+        });
+        
+        // セグメンテーションを実行
+        selfieSegmentation.send({image: imageElement});
+    });
+}
+
 // ゲーム開始前の敵写真読み込み
 function loadStartEnemyPhoto() {
     const fileInput = document.getElementById('startEnemyPhoto');
@@ -2189,22 +2271,45 @@ function loadStartEnemyPhoto() {
     
     document.getElementById('startModelStatus').textContent = '写真を読み込み中...';
     
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
+        // MediaPipeを初期化
+        await initMediaPipe();
+        
         const reader = new FileReader();
         reader.onload = function(e) {
             const img = new Image();
-            img.onload = function() {
-                // Three.jsテクスチャを作成
-                const texture = new THREE.Texture(img);
-                texture.needsUpdate = true;
-                texture.wrapS = THREE.ClampToEdgeWrapping;
-                texture.wrapT = THREE.ClampToEdgeWrapping;
-                texture.minFilter = THREE.LinearFilter;
-                texture.magFilter = THREE.LinearFilter;
-                
-                enemyPhotoTexture = texture;
-                document.getElementById('startModelStatus').textContent = '写真の読み込みに成功しました！';
-                resolve();
+            img.onload = async function() {
+                try {
+                    document.getElementById('startModelStatus').textContent = '人型を認識中...';
+                    
+                    // 人型認識と輪郭抽出を実行
+                    const processedImg = await extractHumanSilhouette(img);
+                    
+                    // Three.jsテクスチャを作成
+                    const texture = new THREE.Texture(processedImg);
+                    texture.needsUpdate = true;
+                    texture.wrapS = THREE.ClampToEdgeWrapping;
+                    texture.wrapT = THREE.ClampToEdgeWrapping;
+                    texture.minFilter = THREE.LinearFilter;
+                    texture.magFilter = THREE.LinearFilter;
+                    
+                    enemyPhotoTexture = texture;
+                    document.getElementById('startModelStatus').textContent = '人型抽出に成功しました！';
+                    resolve();
+                } catch (error) {
+                    console.log('Human silhouette extraction failed, using original image:', error);
+                    // フォールバック：元の画像を使用
+                    const texture = new THREE.Texture(img);
+                    texture.needsUpdate = true;
+                    texture.wrapS = THREE.ClampToEdgeWrapping;
+                    texture.wrapT = THREE.ClampToEdgeWrapping;
+                    texture.minFilter = THREE.LinearFilter;
+                    texture.magFilter = THREE.LinearFilter;
+                    
+                    enemyPhotoTexture = texture;
+                    document.getElementById('startModelStatus').textContent = '写真の読み込みに成功しました！';
+                    resolve();
+                }
             };
             img.onerror = function() {
                 document.getElementById('startModelStatus').textContent = '写真の読み込みに失敗しました';

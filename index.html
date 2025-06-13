@@ -570,7 +570,8 @@
                     <input type="file" id="startEnemyPhoto" accept=".jpg,.jpeg,.png,.gif,.bmp,.webp">
                     <div style="margin-top: 10px; color: #ccc; font-size: 12px;">
                         ※写真は敵の平面に貼り付けられます<br>
-                        顔写真などがおすすめです
+                        人物写真の場合、自動的に人型を認識して背景を除去します<br>
+                        顔写真や全身写真がおすすめです
                     </div>
                 </div>
                 <div id="startModelStatus" style="margin-top: 10px; color: #66ff66;"></div>
@@ -642,6 +643,9 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/fflate.min.js"></script>
+    
+    <!-- MediaPipe for automatic human silhouette extraction -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747/selfie_segmentation.js"></script>
     
     <!-- Firebase SDK removed - using local storage based ranking -->
     
