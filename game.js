@@ -1209,6 +1209,13 @@ function initMobileControls() {
         }
     });
     
+    // リロードボタン
+    const reloadButton = document.getElementById('reloadButton');
+    reloadButton.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        reload();
+    });
+    
     // タッチ移動コントロール
     initTouchMoveControls();
 }
@@ -1589,11 +1596,21 @@ function showPowerUpMessage() {
 function gameClear() {
     try {
         gameState.isPlaying = false;
-        document.exitPointerLock();
+        
+        // モバイルの場合はポインターロックを使わない
+        if (!isMobile) {
+            document.exitPointerLock();
+        }
         
         // レーダーを非表示
         const radar = document.getElementById('radar');
         if (radar) radar.style.display = 'none';
+        
+        // モバイルコントロールを非表示
+        if (isMobile) {
+            document.getElementById('mobileControls').style.display = 'none';
+            document.getElementById('touchMoveArea').style.display = 'none';
+        }
         
         // ランキングに記録を保存
         saveScore(gameState.score, true);
@@ -1612,6 +1629,12 @@ function gameClear() {
         
         // 敵を停止
         clearEnemies();
+        
+        // 敵のスポーンを停止
+        if (gameState.enemySpawnInterval) {
+            clearInterval(gameState.enemySpawnInterval);
+            gameState.enemySpawnInterval = null;
+        }
     } catch (error) {
         console.error('Game clear error:', error);
     }
@@ -1621,11 +1644,21 @@ function gameClear() {
 function gameOver() {
     try {
         gameState.isPlaying = false;
-        document.exitPointerLock();
+        
+        // モバイルの場合はポインターロックを使わない
+        if (!isMobile) {
+            document.exitPointerLock();
+        }
         
         // レーダーを非表示
         const radar = document.getElementById('radar');
         if (radar) radar.style.display = 'none';
+        
+        // モバイルコントロールを非表示
+        if (isMobile) {
+            document.getElementById('mobileControls').style.display = 'none';
+            document.getElementById('touchMoveArea').style.display = 'none';
+        }
         
         // ランキングに記録を保存
         saveScore(gameState.score, false);
@@ -1644,6 +1677,12 @@ function gameOver() {
         
         // 敵を停止
         clearEnemies();
+        
+        // 敵のスポーンを停止
+        if (gameState.enemySpawnInterval) {
+            clearInterval(gameState.enemySpawnInterval);
+            gameState.enemySpawnInterval = null;
+        }
     } catch (error) {
         console.error('Game over error:', error);
     }
@@ -1780,6 +1819,8 @@ function restartGame() {
     gameState.totalEnemiesKilled = 0;
     gameState.bulletSizeMultiplier = 1;
     gameState.gameStartTime = Date.now(); // ゲーム開始時間をリセット
+    gameState.isJumping = false;
+    gameState.jumpVelocity = 0;
     
     // ゲームオーバー表示をリセット
     document.querySelector('#gameOverContent h2').textContent = 'ゲームオーバー';
@@ -1805,8 +1846,15 @@ function restartGame() {
         gameState.enemies.push(new Enemy());
     }
     
-    // 操作説明を表示
-    document.getElementById('instructions').style.display = 'block';
+    // 操作説明を表示（モバイルは即座にプレイ）
+    if (isMobile) {
+        gameState.isPlaying = true;
+        document.getElementById('radar').style.display = 'block';
+        document.getElementById('mobileControls').style.display = 'block';
+        document.getElementById('touchMoveArea').style.display = 'block';
+    } else {
+        document.getElementById('instructions').style.display = 'block';
+    }
 }
 
 // ゲーム開始前の敵モデル読み込み

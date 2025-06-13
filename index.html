@@ -403,6 +403,17 @@
             right: 0;
         }
         
+        #reloadButton {
+            background: rgba(0, 255, 0, 0.3);
+            border-color: #66ff66;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            font-size: 14px;
+        }
+        
         /* モバイル用UI調整 */
         @media (max-width: 768px) and (orientation: portrait) {
             #gameUI {
@@ -502,6 +513,7 @@
     <div id="mobileControls">
         <button id="shootButton" class="mobile-button">射撃</button>
         <button id="jumpButton" class="mobile-button">ジャンプ</button>
+        <button id="reloadButton" class="mobile-button">リロード</button>
     </div>
     
     <!-- タッチ移動エリア -->
