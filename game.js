@@ -1596,6 +1596,7 @@ function showPowerUpMessage() {
 function gameClear() {
     try {
         gameState.isPlaying = false;
+        gameState.isStarted = false;
         
         // モバイルの場合はポインターロックを使わない
         if (!isMobile) {
@@ -1621,7 +1622,10 @@ function gameClear() {
         const gameOverTitle = document.querySelector('#gameOverContent h2');
         
         if (finalScore) finalScore.textContent = gameState.score;
-        if (gameOverScreen) gameOverScreen.style.display = 'flex';
+        if (gameOverScreen) {
+            gameOverScreen.style.display = 'flex';
+            gameOverScreen.style.zIndex = '9999'; // 最前面に表示
+        }
         if (gameOverTitle) {
             gameOverTitle.textContent = 'ゲームクリア！';
             gameOverTitle.style.color = '#4CAF50';
@@ -1629,14 +1633,25 @@ function gameClear() {
         
         // 敵を停止
         clearEnemies();
+        clearBullets();
+        clearParticleEffects();
         
         // 敵のスポーンを停止
         if (gameState.enemySpawnInterval) {
             clearInterval(gameState.enemySpawnInterval);
             gameState.enemySpawnInterval = null;
         }
+        
+        // 3秒後にタイトル画面へ自動遷移（モバイル対応）
+        setTimeout(() => {
+            returnToTitle();
+        }, 3000);
     } catch (error) {
         console.error('Game clear error:', error);
+        // エラー時も強制的にタイトルへ
+        setTimeout(() => {
+            returnToTitle();
+        }, 1000);
     }
 }
 
@@ -1644,6 +1659,7 @@ function gameClear() {
 function gameOver() {
     try {
         gameState.isPlaying = false;
+        gameState.isStarted = false;
         
         // モバイルの場合はポインターロックを使わない
         if (!isMobile) {
@@ -1669,7 +1685,10 @@ function gameOver() {
         const gameOverTitle = document.querySelector('#gameOverContent h2');
         
         if (finalScore) finalScore.textContent = gameState.score;
-        if (gameOverScreen) gameOverScreen.style.display = 'flex';
+        if (gameOverScreen) {
+            gameOverScreen.style.display = 'flex';
+            gameOverScreen.style.zIndex = '9999'; // 最前面に表示
+        }
         if (gameOverTitle) {
             gameOverTitle.textContent = 'ゲームオーバー';
             gameOverTitle.style.color = 'white';
@@ -1677,14 +1696,25 @@ function gameOver() {
         
         // 敵を停止
         clearEnemies();
+        clearBullets();
+        clearParticleEffects();
         
         // 敵のスポーンを停止
         if (gameState.enemySpawnInterval) {
             clearInterval(gameState.enemySpawnInterval);
             gameState.enemySpawnInterval = null;
         }
+        
+        // 3秒後にタイトル画面へ自動遷移（モバイル対応）
+        setTimeout(() => {
+            returnToTitle();
+        }, 3000);
     } catch (error) {
         console.error('Game over error:', error);
+        // エラー時も強制的にタイトルへ
+        setTimeout(() => {
+            returnToTitle();
+        }, 1000);
     }
 }
 
@@ -1803,6 +1833,75 @@ function clearParticleEffects() {
         });
     });
     gameState.particleEffects = [];
+}
+
+// タイトル画面に戻る
+function returnToTitle() {
+    try {
+        // ゲーム状態を完全リセット
+        gameState.isPlaying = false;
+        gameState.isStarted = false;
+        gameState.score = 0;
+        gameState.health = 100;
+        gameState.ammo = 30;
+        gameState.isReloading = false;
+        gameState.totalEnemiesKilled = 0;
+        gameState.bulletSizeMultiplier = 1;
+        gameState.isJumping = false;
+        gameState.jumpVelocity = 0;
+        
+        // 全てのゲームオブジェクトをクリア
+        clearEnemies();
+        clearBullets();
+        clearParticleEffects();
+        
+        // インターバルをクリア
+        if (gameState.enemySpawnInterval) {
+            clearInterval(gameState.enemySpawnInterval);
+            gameState.enemySpawnInterval = null;
+        }
+        
+        // 音楽を停止
+        if (backgroundMusic) {
+            backgroundMusic.stop();
+        }
+        if (ambientSounds) {
+            ambientSounds.stop();
+        }
+        
+        // カメラ位置をリセット
+        const initialGroundHeight = getGroundHeight(0, 0);
+        const groundOffset = 0.1;
+        gameState.playerY = initialGroundHeight + 1.6 + groundOffset;
+        camera.position.set(0, gameState.playerY, 0);
+        camera.rotation.set(0, 0, 0);
+        
+        // UIを非表示
+        document.getElementById('gameOverScreen').style.display = 'none';
+        document.getElementById('radar').style.display = 'none';
+        if (isMobile) {
+            document.getElementById('mobileControls').style.display = 'none';
+            document.getElementById('touchMoveArea').style.display = 'none';
+        }
+        
+        // タイトル画面を表示
+        document.getElementById('startScreen').style.display = 'flex';
+        
+        // タイトル音楽を再生
+        if (backgroundMusic) {
+            setTimeout(() => {
+                backgroundMusic.playTitleMusic();
+            }, 100);
+        }
+        
+        // ランキングを更新
+        updateRankingDisplay();
+        
+    } catch (error) {
+        console.error('Return to title error:', error);
+        // 強制的にリロード
+        location.reload();
+    }
 }
 
 // ゲームをリスタート
